@@ -1,52 +1,51 @@
 #!/bin/bash
 
-# 批量处理 test_data 目录下所有数据的推理脚本
-# 使用方法: bash batch_infer_test_data.sh <test_data_dir>
+# Batch inference script for processing all samples under test_data directory
+# Usage: bash batch_infer_test_data.sh <test_data_dir>
 
 set -e
 
-# 参数解析
-TEST_DATA_DIR="${1:-/data/zhaolin/Agents/agent_v2/test_data}"
+# Argument parsing
+TEST_DATA_DIR="${1:-test_data}"
 CONFIDENCE=0.3
 
-# 脚本所在目录（用于定位配置文件和权重）
+# Script directory (for resolving configs and weights)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🦷 批量推理 test_data 目录下所有数据"
-echo "数据目录: $TEST_DATA_DIR"
-echo "置信度阈值: $CONFIDENCE"
+echo "🦷 Batch inference on all data in test_data directory"
+echo "Data directory: $TEST_DATA_DIR"
+echo "Confidence threshold: $CONFIDENCE"
 echo ""
 
-# 激活虚拟环境
+# Activate virtual environment
 PROJECT_VENV="/data/zhaolin/tool_env/TVEM/.venv"
 if [ -f "$PROJECT_VENV/bin/activate" ]; then
-    echo "使用独立虚拟环境: $PROJECT_VENV"
+    echo "Using standalone virtual environment: $PROJECT_VENV"
     source "$PROJECT_VENV/bin/activate"
 elif [ -f "$SCRIPT_DIR/../../.venv/bin/activate" ]; then
-    echo "使用项目根目录虚拟环境"
+    echo "Using project root virtual environment"
     source "$SCRIPT_DIR/../../.venv/bin/activate"
 elif [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
     source "$SCRIPT_DIR/.venv/bin/activate"
 fi
 
-# 切换到脚本目录（确保相对路径正确）
+# Switch to script directory
 cd "$SCRIPT_DIR"
 
-# 统计变量
+# Statistics variables
 TOTAL=0
 SUCCESS=0
 FAILED=0
 
-# 遍历 test_data 目录下的所有子目录
+# Iterate over all subdirectories in test_data
 for DATA_DIR in "$TEST_DATA_DIR"/*/; do
-    # 获取目录名（去掉末尾斜杠）
     DATA_NAME=$(basename "$DATA_DIR")
     IMAGE_PATH="$DATA_DIR/image_1.png"
     OUTPUT_BASE="$DATA_DIR/tvem_results"
     
-    # 检查图像是否存在
+    # Check if image exists
     if [ ! -f "$IMAGE_PATH" ]; then
-        echo "⚠️  跳过 $DATA_NAME: 未找到 image_1.png"
+        echo "⚠️  Skipping $DATA_NAME: image_1.png not found"
         continue
     fi
     
@@ -54,18 +53,18 @@ for DATA_DIR in "$TEST_DATA_DIR"/*/; do
     
     echo ""
     echo "=========================================="
-    echo "📂 处理: $DATA_NAME ($TOTAL)"
+    echo "📂 Processing: $DATA_NAME ($TOTAL)"
     echo "=========================================="
-    echo "输入图像: $IMAGE_PATH"
-    echo "输出目录: $OUTPUT_BASE"
+    echo "Input image: $IMAGE_PATH"
+    echo "Output directory: $OUTPUT_BASE"
     
-    # 创建输出目录
+    # Create output directory
     mkdir -p "$OUTPUT_BASE"
     
-    # 执行4个模型的推理
+    # Execute inference for 4 models
     (
         echo ""
-        echo "  [1/4] 11类疾病检测..."
+        echo "  [1/4] 11 Diseases Detection..."
         python infer_with_json.py \
             --config configs/11diseases.yaml \
             --checkpoint weights/11diseases.pth \
@@ -74,7 +73,7 @@ for DATA_DIR in "$TEST_DATA_DIR"/*/; do
             --category-file categories/11diseases_category.json \
             --confidence $CONFIDENCE
         
-        echo "  [2/4] 4象限分割..."
+        echo "  [2/4] 4 Quadrants Segmentation..."
         python infer_with_json.py \
             --config configs/4quadrants.yaml \
             --checkpoint weights/4quadrants.pth \
@@ -83,7 +82,7 @@ for DATA_DIR in "$TEST_DATA_DIR"/*/; do
             --category-file categories/4quadrants_category.json \
             --confidence $CONFIDENCE
         
-        echo "  [3/4] 下颌管和上颌窦..."
+        echo "  [3/4] Mandibular Canal and Maxillary Sinus..."
         python infer_with_json.py \
             --config configs/mandibular_maxillary.yaml \
             --checkpoint weights/mandibular_maxillary.pth \
@@ -92,7 +91,7 @@ for DATA_DIR in "$TEST_DATA_DIR"/*/; do
             --category-file categories/mandibular_maxillary_category.json \
             --confidence $CONFIDENCE
         
-        echo "  [4/4] 骨质流失检测..."
+        echo "  [4/4] Bone Loss Detection..."
         python infer_with_json.py \
             --config configs/bone_loss.yaml \
             --checkpoint weights/bone_loss.pth \
@@ -101,7 +100,7 @@ for DATA_DIR in "$TEST_DATA_DIR"/*/; do
             --category-file categories/bone_loss_category.json \
             --confidence $CONFIDENCE
     ) && {
-        # 生成汇总 JSON
+        # Generate summary JSON
         python - "$OUTPUT_BASE" << 'PYTHON_SCRIPT'
 import json
 import sys
@@ -122,22 +121,23 @@ for json_file in results_dir.glob("*/*_results.json"):
 with open(results_dir / "summary.json", 'w') as f:
     json.dump(all_results, f, indent=2, ensure_ascii=False)
 
-print(f"  ✅ 汇总结果已保存: {results_dir}/summary.json")
+print(f"  ✅ Summary results saved: {results_dir}/summary.json")
 PYTHON_SCRIPT
         
         SUCCESS=$((SUCCESS + 1))
-        echo "  ✅ $DATA_NAME 处理完成"
+        echo "  ✅ $DATA_NAME completed"
     } || {
         FAILED=$((FAILED + 1))
-        echo "  ❌ $DATA_NAME 处理失败"
+        echo "  ❌ $DATA_NAME failed"
     }
 done
 
 echo ""
 echo "=========================================="
-echo "📊 批量处理完成"
+echo "📊 Batch Processing Completed"
 echo "=========================================="
-echo "总计: $TOTAL"
-echo "成功: $SUCCESS"
-echo "失败: $FAILED"
+echo "Total: $TOTAL"
+echo "Success: $SUCCESS"
+echo "Failed: $FAILED"
 echo ""
+

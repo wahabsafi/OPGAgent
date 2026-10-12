@@ -1,5 +1,5 @@
 #!/bin/bash
-# 继续推理：在指定输出目录中只处理尚未有 answer.txt 的样本
+# Resume inference: Only process samples in output directory that do not have answer.txt yet
 
 set -e
 
@@ -12,15 +12,15 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-DATA_DIR="${1:-/data/zhaolin/Agents/agent_v2/dataset}"
-OUTPUT_DIR="${2:-$PROJECT_DIR/runs/inference_20260202_160416}"
+DATA_DIR="${1:-dataset}"
+OUTPUT_DIR="${2:-$PROJECT_DIR/runs/inference}"
 QUESTION="Analyze this OPG image and provide a diagnostic report."
 
 echo -e "${BLUE}============================================================${NC}"
-echo -e "${BLUE}Agent_v3 继续推理${NC}"
+echo -e "${BLUE}OPGAgent Resume Inference${NC}"
 echo -e "${BLUE}============================================================${NC}"
-echo -e "数据目录: ${GREEN}$DATA_DIR${NC}"
-echo -e "输出目录: ${GREEN}$OUTPUT_DIR${NC}"
+echo -e "Data directory: ${GREEN}$DATA_DIR${NC}"
+echo -e "Output directory: ${GREEN}$OUTPUT_DIR${NC}"
 echo -e "${BLUE}------------------------------------------------------------${NC}"
 
 SAMPLES=()
@@ -35,7 +35,7 @@ for sample_dir in "$DATA_DIR"/*/; do
 done
 
 TOTAL_SAMPLES=${#SAMPLES[@]}
-echo -e "待处理: ${GREEN}$TOTAL_SAMPLES${NC} 个样本"
+echo -e "Pending: ${GREEN}$TOTAL_SAMPLES${NC} samples"
 echo -e "${BLUE}------------------------------------------------------------${NC}"
 
 cd "$PROJECT_DIR"
@@ -53,7 +53,7 @@ for i in "${!SAMPLES[@]}"; do
     output_file="$sample_output_dir/agent_io.json"
 
     current=$((i + 1))
-    echo -e "\n${YELLOW}[$current/$TOTAL_SAMPLES]${NC} 处理: ${GREEN}$sample_id${NC}"
+    echo -e "\n${YELLOW}[$current/$TOTAL_SAMPLES]${NC} Processing: ${GREEN}$sample_id${NC}"
 
     START_TIME=$(date +%s)
 
@@ -64,19 +64,20 @@ for i in "${!SAMPLES[@]}"; do
         --tool-service api_service 2>&1; then
         END_TIME=$(date +%s)
         DURATION=$((END_TIME - START_TIME))
-        echo -e "  ${GREEN}✓ 成功${NC} (耗时: ${DURATION}s)"
+        echo -e "  ${GREEN}✓ Success${NC} (Elapsed: ${DURATION}s)"
         SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     else
         END_TIME=$(date +%s)
         DURATION=$((END_TIME - START_TIME))
-        echo -e "  ${RED}✗ 失败${NC} (耗时: ${DURATION}s)"
+        echo -e "  ${RED}✗ Failed${NC} (Elapsed: ${DURATION}s)"
         FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
 done
 
 echo -e "\n${BLUE}============================================================${NC}"
-echo -e "${BLUE}推理完成${NC}"
+echo -e "${BLUE}Inference Completed${NC}"
 echo -e "${BLUE}============================================================${NC}"
-echo -e "总样本数: ${YELLOW}$TOTAL_SAMPLES${NC}"
-echo -e "成功: ${GREEN}$SUCCESS_COUNT${NC}"
-echo -e "失败: ${RED}$FAIL_COUNT${NC}"
+echo -e "Total samples: ${YELLOW}$TOTAL_SAMPLES${NC}"
+echo -e "Success: ${GREEN}$SUCCESS_COUNT${NC}"
+echo -e "Failed: ${RED}$FAIL_COUNT${NC}"
+

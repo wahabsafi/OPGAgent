@@ -34,11 +34,11 @@ When converting natural language OPG reports to structured JSON using this stand
   - If sinuses are clear → omit entire `sinuses` object
 - **Exception:** `dentition_summary` is always included
 
-### 5. Anatomical Hierarchy（仅限 OPG 可见发现 / OPG-only）
+### 5. Anatomical Hierarchy (OPG-Visible Findings Only)
 
-**中文补充（强约束）**：结构化报告中 **只能包含 OPG（全景片）可见的 findings**。如果原始文本同时包含头影测量（cephalogram）/正畸测量等信息，**不得**写入结构化报告（例如 overbite、molar class、颌位关系等）。
+**Constraint Note (Strict Requirement)**: The structured report **must only contain findings visible on the OPG (panoramic radiograph)**. If the raw text includes cephalogram or orthodontic cephalometric measurements, they **must not** be included in the structured report (e.g., overbite, molar class, skeletal/jaw relationship, etc.).
 
-- **Top-Level Keys Only（OPG-only）**：仅允许以下根键（root keys）：
+- **Top-Level Keys Only (OPG-only)**: Only the following root keys are allowed:
   - `patient`, `dentition_summary`, `teeth`, `periodontium`, `tmj`, `sinuses`, `jaws`, `anatomical_variants`
 - **FDI Notation:** Tooth-specific findings must use ISO 3950 notation as string keys
   - Example: `"18"`, `"46"`, `"85"` (not numeric integers)

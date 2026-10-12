@@ -1,50 +1,51 @@
 #!/bin/bash
 
 # =================================================================
-# TVEM MaskDINO API 服务启动脚本
-# 端口: 6602
-# GPU: 通过 CUDA_VISIBLE_DEVICES 环境变量指定
+# TVEM MaskDINO API Service Startup Script
+# Port: 6602
+# GPU: Specified via CUDA_VISIBLE_DEVICES environment variable
 # =================================================================
 
-# 获取脚本所在目录
+# Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# 设置默认值
+# Set default values
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-6602}"
 GPU="${GPU:-0}"
 DEVICE="${DEVICE:-cuda:0}"
 
-# 颜色输出
+# Color output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  TVEM MaskDINO API 服务${NC}"
+echo -e "${GREEN}  TVEM MaskDINO API Service${NC}"
 echo -e "${GREEN}========================================${NC}"
-echo "📍 地址: http://${HOST}:${PORT}"
-echo "📚 文档: http://localhost:${PORT}/docs"
+echo "📍 Address: http://${HOST}:${PORT}"
+echo "📚 Docs: http://localhost:${PORT}/docs"
 echo "🖥️  GPU: $GPU (Device: $DEVICE)"
 echo ""
 
-# 设置 GPU
+# Set GPU
 export CUDA_VISIBLE_DEVICES=$GPU
 
-# 尝试激活虚拟环境
+# Try activating virtual environment
 PROJECT_VENV="/data/zhaolin/tool_env/TVEM/.venv"
 if [ -f "$PROJECT_VENV/bin/activate" ]; then
-    echo -e "${GREEN}使用独立虚拟环境: $PROJECT_VENV${NC}"
+    echo -e "${GREEN}Using standalone virtual environment: $PROJECT_VENV${NC}"
     source "$PROJECT_VENV/bin/activate"
     python api_server.py --host "$HOST" --port "$PORT" --device "$DEVICE"
 else
-    echo "未找到独立虚拟环境，尝试使用项目根目录环境..."
+    echo "Standalone virtual environment not found, trying project root environment..."
     if [ -f "../../.venv/bin/activate" ]; then
         source "../../.venv/bin/activate"
         python api_server.py --host "$HOST" --port "$PORT" --device "$DEVICE"
     else
-        echo "未找到虚拟环境，尝试使用 uv run..."
+        echo "Virtual environment not found, trying uv run..."
         uv run python api_server.py --host "$HOST" --port "$PORT" --device "$DEVICE"
     fi
 fi
+

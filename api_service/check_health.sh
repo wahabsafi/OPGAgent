@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =================================================================
-# Agent_v3 API 服务健康检查脚本
+# Agent_v3 API Services Health Check Script
 # =================================================================
 
-# 颜色输出
+# Color output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -12,11 +12,11 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}  Agent_v3 API 服务健康检查${NC}"
+echo -e "${CYAN}  Agent_v3 API Services Health Check${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
-# 服务配置
+# Service configuration
 declare -A SERVICES=(
     [6600]="yolo_enumeration"
     [6602]="tvem"
@@ -31,7 +31,7 @@ declare -A SERVICES=(
     [6611]="dental_gpt_3"
 )
 
-# 统计
+# Statistics
 total=0
 healthy=0
 unhealthy=0
@@ -40,24 +40,25 @@ for port in "${!SERVICES[@]}"; do
     service_name="${SERVICES[$port]}"
     total=$((total + 1))
     
-    # 检查健康状态
+    # Check health status
     response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$port/health" 2>/dev/null)
     
     if [ "$response" = "200" ]; then
-        echo -e "${GREEN}✓ $service_name (端口: $port) - 健康${NC}"
+        echo -e "${GREEN}✓ $service_name (Port: $port) - Healthy${NC}"
         healthy=$((healthy + 1))
     else
-        echo -e "${RED}✗ $service_name (端口: $port) - 不可用 (HTTP: $response)${NC}"
+        echo -e "${RED}✗ $service_name (Port: $port) - Unavailable (HTTP: $response)${NC}"
         unhealthy=$((unhealthy + 1))
     fi
 done
 
 echo ""
 echo -e "${CYAN}========================================${NC}"
-echo -e "总计: $total | ${GREEN}健康: $healthy${NC} | ${RED}不可用: $unhealthy${NC}"
+echo -e "Total: $total | ${GREEN}Healthy: $healthy${NC} | ${RED}Unavailable: $unhealthy${NC}"
 echo -e "${CYAN}========================================${NC}"
 
-# 返回错误码（如果有服务不可用）
+# Return error code if any service is unavailable
 if [ $unhealthy -gt 0 ]; then
     exit 1
 fi
+

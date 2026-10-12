@@ -1,33 +1,33 @@
-# Agent_v3 API 服务
+# Agent_v3 API Services
 
-本目录包含 Agent_v3 使用的所有工具 API 服务。
+This directory contains all the tool API services used by Agent_v3 / OPGAgent.
 
-## 端口分配
+## Port Allocation
 
-| 服务 | 端口 | GPU | 说明 |
+| Service | Port | GPU | Description |
 |------|------|-----|------|
-| yolo_enumeration | 6600 | 可配置 | 牙齿编号检测 |
-| tvem | 6602 | 可配置 | MaskDINO 多模型检测 |
-| medsam | 6603 | 可配置 | MedSAM 医学图像分割 |
-| oral_gpt | 6604-6607 | 0-3 | OralGPT-Omni VLM (4副本) |
-| dental_gpt | 6608-6611 | 0-3 | DentalGPT VLM (4副本) |
+| yolo_enumeration | 6600 | Configurable | Tooth enumeration detection |
+| tvem | 6602 | Configurable | MaskDINO multi-model detection |
+| medsam | 6603 | Configurable | MedSAM medical image segmentation |
+| oral_gpt | 6604-6607 | 0-3 | OralGPT-Omni VLM (4 replicas) |
+| dental_gpt | 6608-6611 | 0-3 | DentalGPT VLM (4 replicas) |
 
-## 快速启动
+## Quick Start
 
-### 测试环境 (GPU 0-3)
+### Test Environment (GPU 0-3)
 
 ```bash
-# 启动所有服务（测试环境）
+# Start all services (test environment)
 bash start_all_services.sh
 
-# 停止所有服务
+# Stop all services
 bash stop_all_services.sh
 ```
 
-### 单独启动服务
+### Starting Services Individually
 
 ```bash
-# YOLO 牙齿编号检测
+# YOLO tooth enumeration detection
 cd yolo_enumeration && bash start_api.sh
 
 # TVEM MaskDINO
@@ -36,125 +36,125 @@ cd tvem && bash start_api.sh
 # MedSAM
 cd medsam && bash start_api.sh
 
-# OralGPT (单副本)
+# OralGPT (Single replica)
 cd oral_gpt && bash start_api.sh
 
-# OralGPT (所有4个副本)
+# OralGPT (All 4 replicas)
 cd oral_gpt && bash start_all_replicas.sh
 
-# DentalGPT (单副本)
+# DentalGPT (Single replica)
 cd dental_gpt && bash start_api.sh
 
-# DentalGPT (所有4个副本)
+# DentalGPT (All 4 replicas)
 cd dental_gpt && bash start_all_replicas.sh
 ```
 
-### 指定端口和 GPU
+### Specifying Port and GPU
 
-所有服务支持通过环境变量配置端口和 GPU：
+All services support configuring port and GPU via environment variables:
 
 ```bash
-# 指定端口和 GPU
+# Specify both port and GPU
 PORT=6700 GPU=1 bash start_api.sh
 
-# 仅指定 GPU
+# Specify GPU only
 GPU=2 bash start_api.sh
 ```
 
-## 服务详情
+## Service Details
 
-### 1. YOLO 牙齿编号检测 (yolo_enumeration)
-- **端口**: 6600
-- **功能**: 识别口腔全景片中的牙齿编号 (1-8)
-- **虚拟环境**: `/data/zhaolin/tool_env/yolo_enumeration/.venv`
-- **API 文档**: http://localhost:6600/docs
-- **主要端点**:
-  - `POST /detect` - 检测图像
-  - `GET /health` - 健康检查
-  - `POST /load_model` - 加载模型
-  - `POST /unload_model` - 卸载模型
+### 1. YOLO Tooth Enumeration Detection (yolo_enumeration)
+- **Port**: 6600
+- **Function**: Identifies tooth numbers (1-8) in dental panoramic radiographs
+- **Virtual Environment**: Isolated `uv` venv
+- **API Documentation**: http://localhost:6600/docs
+- **Key Endpoints**:
+  - `POST /detect` - Detect image
+  - `GET /health` - Health check
+  - `POST /load_model` - Load model
+  - `POST /unload_model` - Unload model
 
 ### 2. TVEM MaskDINO (tvem)
-- **端口**: 6602
-- **功能**: 高精度牙科图像分割，支持多种检测任务
-- **虚拟环境**: `/data/zhaolin/tool_env/TVEM/.venv`
-- **API 文档**: http://localhost:6602/docs
-- **支持的模型**:
-  - `4quadrants` - 四象限分割
-  - `11diseases` - 11种疾病检测
-  - `bone_loss` - 骨质流失检测
-  - `mandibular_maxillary` - 下颌管和上颌窦检测
-- **主要端点**:
-  - `POST /detect/{model}` - 使用指定模型检测
-  - `GET /models` - 获取可用模型列表
-  - `GET /health` - 健康检查
-  - `POST /load/{model}` - 加载指定模型
-  - `POST /unload/{model}` - 卸载指定模型
+- **Port**: 6602
+- **Function**: High-precision dental image segmentation, supporting multiple detection tasks
+- **Virtual Environment**: Isolated `uv` venv
+- **API Documentation**: http://localhost:6602/docs
+- **Supported Models**:
+  - `4quadrants` - 4-quadrant segmentation
+  - `11diseases` - 11 dental disease categories detection
+  - `bone_loss` - Alveolar bone loss detection
+  - `mandibular_maxillary` - Mandibular canal and maxillary sinus detection
+- **Key Endpoints**:
+  - `POST /detect/{model}` - Detect with specified model
+  - `GET /models` - List available models
+  - `GET /health` - Health check
+  - `POST /load/{model}` - Load specified model
+  - `POST /unload/{model}` - Unload specified model
 
 ### 3. MedSAM (medsam)
-- **端口**: 6603
-- **功能**: 医学图像分割，根据 bbox 进行精确分割
-- **虚拟环境**: `./medsam/.venv`
-- **API 文档**: http://localhost:6603/docs
-- **主要端点**:
-  - `POST /segment` - 分割图像
-  - `GET /health` - 健康检查
+- **Port**: 6603
+- **Function**: Medical image segmentation, precise segmentation guided by bounding boxes
+- **Virtual Environment**: `./medsam/.venv`
+- **API Documentation**: http://localhost:6603/docs
+- **Key Endpoints**:
+  - `POST /segment` - Segment image
+  - `GET /health` - Health check
 
 ### 4. OralGPT-Omni (oral_gpt)
-- **端口**: 6604-6607 (4个副本)
-- **功能**: 多模态牙科诊断模型
-- **虚拟环境**: `/data/zhaolin/tool_env/OralGPT-omni/.venv`
-- **API 文档**: http://localhost:6604/docs
-- **负载均衡**: Round-robin 策略
-- **主要端点**:
-  - `POST /analyze` - 分析图像
-  - `GET /health` - 健康检查
+- **Port**: 6604-6607 (4 replicas)
+- **Function**: Multimodal dental diagnostic vision-language model
+- **Virtual Environment**: Isolated `uv` venv
+- **API Documentation**: http://localhost:6604/docs
+- **Load Balancing**: Round-robin strategy
+- **Key Endpoints**:
+  - `POST /analyze` - Analyze image
+  - `GET /health` - Health check
 
 ### 5. DentalGPT (dental_gpt)
-- **端口**: 6608-6611 (4个副本)
-- **功能**: 专业牙科 VLM 分析模型
-- **虚拟环境**: `/data/zhaolin/tool_env/dentalGPT/.venv`
-- **API 文档**: http://localhost:6608/docs
-- **负载均衡**: Round-robin 策略
-- **主要端点**:
-  - `POST /analyze` - 分析图像
-  - `GET /health` - 健康检查
-  - `POST /load_model` - 加载模型
-  - `POST /unload_model` - 卸载模型
+- **Port**: 6608-6611 (4 replicas)
+- **Function**: Specialized dental VLM analysis model
+- **Virtual Environment**: Isolated `uv` venv
+- **API Documentation**: http://localhost:6608/docs
+- **Load Balancing**: Round-robin strategy
+- **Key Endpoints**:
+  - `POST /analyze` - Analyze image
+  - `GET /health` - Health check
+  - `POST /load_model` - Load model
+  - `POST /unload_model` - Unload model
 
-## GPU 分配建议
+## GPU Allocation Recommendations
 
-### 测试环境 (4 GPU)
+### Testing Environment (4 GPUs)
 
-对于在 GPU 0-3 上测试：
+For testing across GPU 0-3:
 
-| GPU | 服务 | 显存估计 |
-|-----|------|----------|
+| GPU | Services | Estimated VRAM |
+|-----|----------|----------------|
 | 0 | yolo_enumeration + oral_gpt_0 | ~14GB |
 | 1 | oral_gpt_1 | ~12GB |
 | 2 | tvem + oral_gpt_2 | ~20GB |
 | 3 | medsam + oral_gpt_3 | ~16GB |
 
-或者专门用于 VLM：
+Or dedicated to VLMs:
 
-| GPU | 服务 | 显存估计 |
-|-----|------|----------|
+| GPU | Services | Estimated VRAM |
+|-----|----------|----------------|
 | 0 | oral_gpt_0 + dental_gpt_0 | ~24GB |
 | 1 | oral_gpt_1 + dental_gpt_1 | ~24GB |
 | 2 | oral_gpt_2 + dental_gpt_2 | ~24GB |
 | 3 | oral_gpt_3 + dental_gpt_3 | ~24GB |
 
-### 生产环境
+### Production Environment
 
-建议根据实际 GPU 数量和显存调整配置。
+Adjust configuration based on the available number of GPUs and VRAM.
 
-## 健康检查
+## Health Checks
 
 ```bash
-# 检查所有服务状态
+# Check status of all services
 bash check_health.sh
 
-# 手动检查单个服务
+# Manually check individual services
 curl http://localhost:6600/health  # yolo_enumeration
 curl http://localhost:6602/health  # tvem
 curl http://localhost:6603/health  # medsam
@@ -162,15 +162,16 @@ curl http://localhost:6604/health  # oral_gpt replica 0
 curl http://localhost:6608/health  # dental_gpt replica 0
 ```
 
-## 日志
+## Logs
 
-VLM 服务的日志存放在各自目录下的 `logs/` 文件夹中：
+Logs for VLM services are stored under their respective `logs/` directories:
 - `oral_gpt/logs/oral_gpt_replica_*.log`
 - `dental_gpt/logs/dental_gpt_replica_*.log`
 
-## 故障排除
+## Troubleshooting
 
-1. **端口被占用**: 使用 `lsof -i:端口号` 查看占用进程
-2. **GPU 内存不足**: 使用 `nvidia-smi` 检查 GPU 使用情况
-3. **模型加载失败**: 检查模型文件路径和权限
-4. **虚拟环境问题**: 确保虚拟环境存在且依赖已安装
+1. **Port in use**: Check running processes using `lsof -i:<port_number>`
+2. **Out of GPU Memory (OOM)**: Check GPU usage using `nvidia-smi`
+3. **Model loading failure**: Check model file paths and permissions
+4. **Virtual environment issues**: Ensure virtual environments exist and dependencies are installed
+

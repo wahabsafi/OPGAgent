@@ -1,36 +1,36 @@
 #!/bin/bash
 
-# DentalGPT API Server 依赖安装脚本
-# 在 conda 环境 zl_dentalGPT 中安装所有必需的依赖
+# DentalGPT API Server Dependency Installation Script
+# Installs all required dependencies in conda environment zl_dentalGPT
 
 echo "================================="
-echo "DentalGPT API 依赖安装脚本"
+echo "DentalGPT API Dependency Installation Script"
 echo "================================="
 
-# 激活 conda 环境
+# Activate conda environment
 echo ""
-echo "正在激活 conda 环境: zl_dentalGPT"
+echo "Activating conda environment: zl_dentalGPT"
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate zl_dentalGPT
 
-# 检查是否成功激活
+# Check if activated successfully
 if [[ $CONDA_DEFAULT_ENV != "zl_dentalGPT" ]]; then
-    echo "错误: 无法激活 conda 环境 zl_dentalGPT"
-    echo "请确保该环境存在，可以使用以下命令检查:"
+    echo "Error: Unable to activate conda environment zl_dentalGPT"
+    echo "Please ensure the environment exists. Check with:"
     echo "  conda env list"
     exit 1
 fi
 
-echo "✓ Conda 环境已激活: $CONDA_DEFAULT_ENV"
+echo "✓ Conda environment activated: $CONDA_DEFAULT_ENV"
 
-# 显示 Python 版本
+# Display Python version
 echo ""
-echo "Python 版本:"
+echo "Python Version:"
 python --version
 
-# 安装依赖
+# Install dependencies
 echo ""
-echo "正在安装依赖包..."
+echo "Installing dependency packages..."
 echo "================================="
 
 pip install fastapi==0.109.0
@@ -39,17 +39,18 @@ pip install python-multipart==0.0.6
 
 echo ""
 echo "================================="
-echo "✓ 依赖安装完成！"
+echo "✓ Dependencies installed successfully!"
 echo ""
-echo "注意: 以下包应该已经在您的环境中安装："
+echo "Note: The following packages should already be installed in your environment:"
 echo "  - torch"
 echo "  - transformers"
 echo "  - qwen-vl-utils"
 echo "  - Pillow"
 echo ""
-echo "如果缺少这些包，请手动安装："
+echo "If missing, install them manually:"
 echo "  pip install torch transformers qwen-vl-utils Pillow"
 echo ""
-echo "现在可以启动服务器了："
+echo "You can now start the server:"
 echo "  ./start_server.sh"
 echo "================================="
+

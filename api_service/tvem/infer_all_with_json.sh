@@ -1,38 +1,37 @@
 #!/bin/bash
 
-# 批量推理所有 MaskDINO 模型并生成 JSON 结果
-# 使用方法: bash infer_all_with_json.sh <image_path>
+# Batch inference on all MaskDINO models and generate JSON results
+# Usage: bash infer_all_with_json.sh <image_path>
 
 set -e
 
-IMAGE_PATH="/home/zhaolin/Projects/DentalXrayAgent/test_data/4a2e27ba-991a-48bc-a7f6-0188fc41c52e/image_1.png"
+IMAGE_PATH="${1:-examples/sample.jpg}"
 OUTPUT_BASE="./results"
 CONFIDENCE=0.3
 
-echo "🦷 批量推理所有 MaskDINO 模型（生成 JSON 结果）"
-echo "输入图像: $IMAGE_PATH"
-echo "输出目录: $OUTPUT_BASE"
-echo "置信度阈值: $CONFIDENCE"
+echo "🦷 Batch inference on all MaskDINO models (generating JSON results)"
+echo "Input image: $IMAGE_PATH"
+echo "Output directory: $OUTPUT_BASE"
+echo "Confidence threshold: $CONFIDENCE"
 echo ""
 
-# 激活虚拟环境
-# 激活虚拟环境
+# Activate virtual environment
 PROJECT_VENV="/data/zhaolin/tool_env/TVEM/.venv"
 if [ -f "$PROJECT_VENV/bin/activate" ]; then
-    echo "使用独立虚拟环境: $PROJECT_VENV"
+    echo "Using standalone virtual environment: $PROJECT_VENV"
     source "$PROJECT_VENV/bin/activate"
 elif [ -f "../../.venv/bin/activate" ]; then
-     echo "使用项目根目录虚拟环境"
+     echo "Using project root virtual environment"
     source "../../.venv/bin/activate"
 elif [ -f ".venv/bin/activate" ]; then
     source ".venv/bin/activate"
 fi
 
-# 创建输出目录
+# Create output directory
 mkdir -p "$OUTPUT_BASE"
 
 echo "=========================================="
-echo "1/4: 11类疾病检测"
+echo "1/4: 11 Diseases Detection"
 echo "=========================================="
 python infer_with_json.py \
   --config configs/11diseases.yaml \
@@ -44,7 +43,7 @@ python infer_with_json.py \
 
 echo ""
 echo "=========================================="
-echo "2/4: 4象限分割"
+echo "2/4: 4 Quadrants Segmentation"
 echo "=========================================="
 python infer_with_json.py \
   --config configs/4quadrants.yaml \
@@ -56,7 +55,7 @@ python infer_with_json.py \
 
 echo ""
 echo "=========================================="
-echo "3/4: 下颌管和上颌窦"
+echo "3/4: Mandibular Canal and Maxillary Sinus"
 echo "=========================================="
 python infer_with_json.py \
   --config configs/mandibular_maxillary.yaml \
@@ -68,7 +67,7 @@ python infer_with_json.py \
 
 echo ""
 echo "=========================================="
-echo "4/4: 骨质流失检测"
+echo "4/4: Bone Loss Detection"
 echo "=========================================="
 python infer_with_json.py \
   --config configs/bone_loss.yaml \
@@ -80,14 +79,14 @@ python infer_with_json.py \
 
 echo ""
 echo "=========================================="
-echo "✅ 所有推理完成！"
+echo "✅ All inferences completed!"
 echo "=========================================="
 echo ""
-echo "查看结果:"
-echo "  可视化图像: ls -lh $OUTPUT_BASE/*/*.jpg"
-echo "  JSON 结果:   ls -lh $OUTPUT_BASE/*/*.json"
+echo "View results:"
+echo "  Visualization images: ls -lh $OUTPUT_BASE/*/*.jpg"
+echo "  JSON results:         ls -lh $OUTPUT_BASE/*/*.json"
 echo ""
-echo "合并所有结果:"
+echo "Merging all results:"
 cat << PYTHON > /tmp/merge_results_$$.py
 import json
 import glob
@@ -108,8 +107,9 @@ for json_file in results_dir.glob("*/*_results.json"):
 with open(results_dir / "summary.json", 'w') as f:
     json.dump(all_results, f, indent=2, ensure_ascii=False)
 
-print(f"✅ 汇总结果已保存: {results_dir}/summary.json")
+print(f"✅ Summary results saved: {results_dir}/summary.json")
 PYTHON
 
 python /tmp/merge_results_$$.py
 rm /tmp/merge_results_$$.py
+

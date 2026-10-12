@@ -1,50 +1,50 @@
 # 🦷 Teeth Visual Experts Models (TVEM)
 
-基于 MaskDINO 的牙科疾病检测与分割模型集合。
+MaskDINO-based dental disease detection and segmentation model collection.
 
-## 📋 可用模型
+## 📋 Available Models
 
-### MaskDINO 分割模型（4个）
+### MaskDINO Segmentation Models (4 models)
 
-| 模型 | 配置文件 | 权重文件 | 用途 |
+| Model | Config File | Weight File | Purpose |
 |------|---------|---------|------|
-| **11类疾病检测** | `configs/11diseases.yaml` | `weights/11diseases.pth` | 龋齿、充填、阻生、根尖病变、深龋、残根、种植体、牙冠、残冠、桥体、义齿 |
-| **4象限分割** | `configs/4quadrants.yaml` | `weights/4quadrants.pth` | 右上、左上、左下、右下象限 |
-| **解剖结构** | `configs/mandibular_maxillary.yaml` | `weights/mandibular_maxillary.pth` | 下颌管、上颌窦 |
-| **骨质流失** | `configs/bone_loss.yaml` | `weights/bone_loss.pth` | 牙槽骨吸收检测 |
+| **11 Diseases Detection** | `configs/11diseases.yaml` | `weights/11diseases.pth` | Caries, filling, impaction, periapical lesion, deep caries, retained root, implant, crown, residual crown, pontic, denture |
+| **4 Quadrants Segmentation** | `configs/4quadrants.yaml` | `weights/4quadrants.pth` | Upper right, upper left, lower left, lower right quadrants |
+| **Anatomical Structures** | `configs/mandibular_maxillary.yaml` | `weights/mandibular_maxillary.pth` | Mandibular canal, maxillary sinus |
+| **Bone Loss** | `configs/bone_loss.yaml` | `weights/bone_loss.pth` | Alveolar bone loss detection |
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 环境设置
+### 1. Environment Setup
 
 ```bash
-# 安装依赖（首次使用）
+# Install dependencies (first-time setup)
 bash setup_maskdino_only.sh
 ```
 
-这将会：
-- 创建虚拟环境 (`.venv`)
-- 克隆 MaskDINO 仓库
-- 安装所有必要的 Python 依赖
+This will:
+- Create virtual environment (`.venv`)
+- Clone MaskDINO repository
+- Install all required Python dependencies
 
-### 2. 运行推理
+### 2. Run Inference
 
-**批量推理所有模型（推荐）：**
+**Batch inference on all models (Recommended):**
 
 ```bash
 bash infer_all_with_json.sh examples/sample.jpg
 ```
 
-这将运行所有4个模型并生成：
-- 每个模型的可视化图像和JSON结果
-- 汇总文件 `results/summary.json`
+This will run all 4 models and generate:
+- Visualized images and JSON results for each model
+- Summary file `results/summary.json`
 
-**单个模型：**
+**Single Model:**
 
 ```bash
 source .venv/bin/activate
 
-# 11类疾病检测
+# 11 Diseases Detection
 uv run python infer_with_json.py \
   --config configs/11diseases.yaml \
   --checkpoint weights/11diseases.pth \
@@ -54,24 +54,24 @@ uv run python infer_with_json.py \
   --confidence 0.3
 ```
 
-### 3. 查看结果
+### 3. View Results
 
 ```bash
-# 查看所有结果
+# View all results
 ls -lh results/*/
 
-# 查看汇总
+# View summary
 cat results/summary.json
 ```
 
-输出文件：
-- `{model}/sample_visualization.jpg` - 可视化图像（只显示轮廓边框）
-- `{model}/sample_results.json` - 详细检测结果
-- `summary.json` - 所有模型的汇总结果
+Output files:
+- `{model}/sample_visualization.jpg` - Visualization image (outline only)
+- `{model}/sample_results.json` - Detailed detection results
+- `summary.json` - Aggregated results across all models
 
-## 📊 输出格式
+## 📊 Output Format
 
-### JSON 结构示例
+### JSON Structure Example
 
 ```json
 {
@@ -99,7 +99,7 @@ cat results/summary.json
 }
 ```
 
-### 汇总文件 (summary.json)
+### Summary File (summary.json)
 
 ```json
 {
@@ -137,143 +137,143 @@ cat results/summary.json
 }
 ```
 
-## ⚙️ 参数说明
+## ⚙️ Parameter Description
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--config` | 模型配置文件 | 必需 |
-| `--checkpoint` | 模型权重文件 | 必需 |
-| `--image` | 输入图像路径 | 必需 |
-| `--output-dir` | 输出目录 | `./results` |
-| `--category-file` | 类别映射文件 | 可选 |
-| `--confidence` | 置信度阈值 | 0.3 |
-| `--device` | 计算设备 | `cuda` |
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--config` | Model configuration file | Required |
+| `--checkpoint` | Model checkpoint weight file | Required |
+| `--image` | Input image path | Required |
+| `--output-dir` | Output directory | `./results` |
+| `--category-file` | Category mapping file | Optional |
+| `--confidence` | Confidence threshold | 0.3 |
+| `--device` | Compute device | `cuda` |
 
-### 置信度阈值建议
+### Confidence Threshold Recommendations
 
-- **0.3-0.4**: 平衡模式（推荐）- 较全面的检测
-- **0.5-0.6**: 严格模式 - 只保留高置信度结果
-- **0.2-0.3**: 宽松模式 - 包含更多潜在检测
+- **0.3-0.4**: Balanced mode (recommended) - comprehensive detection
+- **0.5-0.6**: Strict mode - high-confidence results only
+- **0.2-0.3**: Loose mode - capture more potential detections
 
-## 📁 文件结构
+## 📁 File Structure
 
 ```
 TVEM/
-├── README.md                          # 本文件
-├── setup_maskdino_only.sh            # 环境安装脚本
-├── infer_with_json.py                # 单模型推理脚本（轮廓可视化）
-├── infer_all_with_json.sh            # 批量推理脚本
-├── create_category_files.py          # 类别文件生成器
+├── README.md                          # This document
+├── setup_maskdino_only.sh            # Environment setup script
+├── infer_with_json.py                # Single model inference script (outline visualization)
+├── infer_all_with_json.sh            # Batch inference script
+├── create_category_files.py          # Category file generator
 │
-├── configs/                           # 配置文件
+├── configs/                           # Configuration files
 │   ├── 11diseases.yaml
 │   ├── 4quadrants.yaml
 │   ├── mandibular_maxillary.yaml
 │   └── bone_loss.yaml
 │
-├── weights/                           # 模型权重 (~10GB)
+├── weights/                           # Model weights (~10GB)
 │   ├── 11diseases.pth
 │   ├── 4quadrants.pth
 │   ├── mandibular_maxillary.pth
 │   └── bone_loss.pth
 │
-├── categories/                        # 类别映射
+├── categories/                        # Category mappings
 │   ├── 11diseases_category.json
 │   ├── 4quadrants_category.json
 │   ├── mandibular_maxillary_category.json
 │   └── bone_loss_category.json
 │
-├── examples/                          # 样例文件
+├── examples/                          # Sample files
 │   └── sample.jpg
 │
-└── MaskDINO/                         # MaskDINO 框架（自动克隆）
+└── MaskDINO/                         # MaskDINO framework (auto-cloned)
 ```
 
-## 📝 文件命名对照表
+## 📝 File Naming Reference Table
 
-为了简化使用，所有文件都使用简短的功能性名称：
+To simplify usage, functional shorthand names are used:
 
-### 配置文件 (configs/)
+### Configuration Files (configs/)
 
-| 简化名称 | 原始名称 | 功能 |
-|---------|---------|------|
-| `11diseases.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_x-ray_11diseases.yaml` | 11类牙科疾病检测 |
-| `4quadrants.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_panoramic_x-ray_4quadrants.yaml` | 4象限分割 |
-| `mandibular_maxillary.yaml` | `maskdino_Swinl_bs16_50ep_4s_dowsample1_2048_panoramic_x-ray_Mandibular_Canal_Maxillary_Sinus.yaml` | 下颌管和上颌窦 |
-| `bone_loss.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_x-ray_bone_loss_1diseases.yaml` | 骨质流失检测 |
+| Shorthand Name | Original Name | Function |
+|----------------|---------------|----------|
+| `11diseases.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_x-ray_11diseases.yaml` | 11 dental disease detection |
+| `4quadrants.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_panoramic_x-ray_4quadrants.yaml` | 4-quadrant segmentation |
+| `mandibular_maxillary.yaml` | `maskdino_Swinl_bs16_50ep_4s_dowsample1_2048_panoramic_x-ray_Mandibular_Canal_Maxillary_Sinus.yaml` | Mandibular canal and maxillary sinus |
+| `bone_loss.yaml` | `maskdino_SwinL_bs16_50ep_4s_dowsample1_2048_x-ray_bone_loss_1diseases.yaml` | Alveolar bone loss detection |
 
-### 模型权重 (weights/)
+### Model Weights (weights/)
 
-| 简化名称 | 原始名称 | 大小 |
-|---------|---------|------|
+| Shorthand Name | Original Name | Size |
+|----------------|---------------|------|
 | `11diseases.pth` | `Teeth_Visual_Experts_Maskdino_Swinl_x-ray_11diseases.pth` | ~2.5GB |
 | `4quadrants.pth` | `Teeth_Visual_Experts_Maskdino_Swinl_panoramic_x-ray_4quadrants.pth` | ~2.5GB |
 | `mandibular_maxillary.pth` | `Teeth_Visual_Experts_Maskdino_Swinl_panoramic_x-ray_Mandibular_Canal_Maxillary_Sinus.pth` | ~2.5GB |
 | `bone_loss.pth` | `Teeth_Visual_Experts_Maskdino_Swinl_x-ray_bone_loss_1disease.pth` | ~2.5GB |
 
-## ✨ 主要特性
+## ✨ Key Features
 
-### 1. 轮廓可视化
-- ✅ 只显示mask的轮廓边框（无半透明填充）
-- ✅ 显示类别名称（而非category_id）
-- ✅ 自定义可视化器 `OutlineOnlyVisualizer`
+### 1. Outline Visualization
+- ✅ Displays outline borders only for masks (no semi-transparent fill)
+- ✅ Displays category names (rather than category_ids)
+- ✅ Custom visualizer `OutlineOnlyVisualizer`
 
-### 2. JSON输出
-- ✅ 详细的检测信息（边界框、mask面积、置信度）
-- ✅ 类别统计
-- ✅ 自动汇总所有模型结果
+### 2. JSON Output
+- ✅ Detailed detection information (bounding boxes, mask areas, confidences)
+- ✅ Category statistics
+- ✅ Automatic aggregation across all models
 
-### 3. 置信度过滤
-- ✅ 可配置的置信度阈值
-- ✅ 过滤低质量检测
-- ✅ 统计信息基于过滤后的结果
+### 3. Confidence Filtering
+- ✅ Configurable confidence thresholds
+- ✅ Filters low-quality detections
+- ✅ Summary statistics based on filtered results
 
-## 🔧 故障排除
+## 🔧 Troubleshooting
 
-### 1. 依赖错误
+### 1. Dependency Errors
 
 ```bash
-# 重新安装关键依赖
+# Reinstall key dependencies
 cd MaskDINO
 uv pip install timm==0.6.13 numpy==1.26.4
 uv pip install 'git+https://github.com/facebookresearch/detectron2.git'
 ```
 
-### 2. CUDA 内存不足
+### 2. CUDA Out of Memory
 
-- 关闭其他 GPU 程序
-- 减小输入图像尺寸
-- 使用 CPU 模式：`--device cpu`
+- Terminate other GPU processes
+- Reduce input image dimensions
+- Run in CPU mode: `--device cpu`
 
-### 3. 配置文件路径错误
+### 3. Config Path Errors
 
-如果遇到 `_BASE_` 路径错误，检查 YAML 文件中的路径是否为 `../MaskDINO/...`：
+If encountering `_BASE_` path errors, verify that YAML paths point to `../MaskDINO/...`:
 
 ```yaml
 _BASE_: ../MaskDINO/configs/coco/instance-segmentation/Base-COCO-InstanceSegmentation.yaml
 ```
 
-### 4. 类别映射文件缺失
+### 4. Missing Category Mapping Files
 
 ```bash
-# 重新生成类别文件
+# Regenerate category files
 source .venv/bin/activate
 python create_category_files.py
 ```
 
-## 💡 使用示例
+## 💡 Usage Examples
 
-### 示例1: 批量检测
+### Example 1: Batch Detection
 
 ```bash
-# 对单张图片运行所有模型
+# Run all models on a single image
 bash infer_all_with_json.sh patient001.jpg
 
-# 查看汇总结果
+# View summary results
 cat results/summary.json
 ```
 
-### 示例2: 单个模型 - 11类疾病检测
+### Example 2: Single Model - 11 Diseases Detection
 
 ```bash
 source .venv/bin/activate
@@ -287,7 +287,7 @@ uv run python infer_with_json.py \
   --confidence 0.3
 ```
 
-### 示例3: 象限分割（高置信度）
+### Example 3: Quadrant Segmentation (High Confidence)
 
 ```bash
 source .venv/bin/activate
@@ -301,29 +301,29 @@ uv run python infer_with_json.py \
   --confidence 0.5
 ```
 
-## 📚 参考资料
+## 📚 References
 
-- **原始项目**: [OralGPT](https://github.com/isbrycee/OralGPT)
-- **模型仓库**: [HuggingFace - Teeth_Visual_Experts_Models](https://huggingface.co/Bryceee/Teeth_Visual_Experts_Models)
+- **Original Project**: [OralGPT](https://github.com/isbrycee/OralGPT)
+- **Model Repository**: [HuggingFace - Teeth_Visual_Experts_Models](https://huggingface.co/Bryceee/Teeth_Visual_Experts_Models)
 - **MaskDINO**: [IDEA-Research/MaskDINO](https://github.com/IDEA-Research/MaskDINO)
 - **Detectron2**: [facebookresearch/detectron2](https://github.com/facebookresearch/detectron2)
 
-## 📄 许可
+## 📄 License
 
-遵循原始模型的许可协议。本项目仅用于研究和教育目的。
+Subject to original model licenses. Intended for research and educational purposes.
 
-## 🙏 致谢
+## 🙏 Acknowledgements
 
-- OralGPT 团队提供的预训练模型
-- IDEA Research 的 MaskDINO 框架
-- Facebook Research 的 Detectron2
+- Pretrained models provided by the OralGPT team
+- MaskDINO framework by IDEA Research
+- Detectron2 by Facebook Research
 
 ---
 
-**版本**: 2.0  
-**最后更新**: 2026-01-07  
-**主要改进**:
-- ✨ 文件结构重组（configs/、weights/、categories/）
-- ✨ 文件名简化（功能性命名）
-- ✨ 轮廓可视化（无填充）
-- ✨ 自动汇总功能
+**Version**: 2.0  
+**Last Updated**: 2026-01-07  
+**Main Improvements**:
+- ✨ File structure reorganized (configs/, weights/, categories/)
+- ✨ Simplified file naming
+- ✨ Outline-only mask visualization
+- ✨ Automatic summary output

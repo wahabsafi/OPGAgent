@@ -1,7 +1,7 @@
 # =================================================================
-# Agent_v3 工具服务配置文件
-# 端口从 6600 开始
-# VLM 服务配置 4 个副本
+# Agent_v3 Tool Services Configuration
+# Ports start from 6600
+# VLM services configured with 4 replicas
 # =================================================================
 
 default_settings:
@@ -10,10 +10,10 @@ default_settings:
   retry_delay: 1
 
 tools:
-  # YOLO 牙齿编号检测
+  # YOLO Tooth Enumeration Detection
   yolo_enumeration:
-    name: YOLO 牙齿编号
-    description: 使用 YOLO 模型对口腔全景片中的牙齿进行编号识别
+    name: YOLO Tooth Enumeration
+    description: Uses YOLO model to identify and enumerate teeth in panoramic radiographs
     service:
       host: localhost
       port: 6600
@@ -44,10 +44,10 @@ tools:
         statistics: dict
 
 
-  # TVEM MaskDINO 检测
+  # TVEM MaskDINO Detection
   tvem:
-    name: TVEM MaskDINO 检测
-    description: 使用 MaskDINO 模型进行高精度牙科图像分割检测，支持多种检测任务
+    name: TVEM MaskDINO Detection
+    description: High-precision dental image segmentation using MaskDINO supporting multi-task detection
     service:
       host: localhost
       port: 6602
@@ -70,14 +70,14 @@ tools:
       multi_model: true
     available_models:
       4quadrants:
-        description: 四象限分割 - 检测左上、右上、左下、右下象限
+        description: 4-Quadrant segmentation - upper-left, upper-right, lower-left, lower-right
         categories:
           - "1"
           - "2"
           - "3"
           - "4"
       11diseases:
-        description: 11种疾病检测 - 龋齿、种植体、残冠等
+        description: 11 dental disease detection - caries, implants, residual crowns, etc.
         categories:
           - Caries
           - Crown
@@ -91,11 +91,11 @@ tools:
           - Retained root
           - maxillary sinus
       bone_loss:
-        description: 骨质流失检测
+        description: Alveolar bone loss detection
         categories:
           - Bone Loss
       mandibular_maxillary:
-        description: 下颌管和上颌窦检测
+        description: Mandibular canal and maxillary sinus detection
         categories:
           - Mandibular Canal
           - maxillary sinus
@@ -113,10 +113,10 @@ tools:
         num_detections: int
         image_size: "[width, height]"
 
-  # MedSAM 分割
+  # MedSAM Segmentation
   medsam:
-    name: MedSAM 分割
-    description: 使用 MedSAM 对指定 bbox 内的目标进行精确分割
+    name: MedSAM Segmentation
+    description: Precise medical image segmentation for targets within specified bounding boxes
     service:
       host: localhost
       port: 6603
@@ -139,17 +139,17 @@ tools:
         - jpeg
         - png
       additional_params:
-        bbox: str  # 逗号分隔的 x1,y1,x2,y2
+        bbox: str  # Comma-separated x1,y1,x2,y2
     output:
       type: json
       schema:
         success: bool
         mask_contour: list[list[int]]
 
-  # OralGPT-Omni 分析
+  # OralGPT-Omni Analysis
   oral_gpt:
-    name: OralGPT-Omni 分析
-    description: 多模态牙科诊断模型
+    name: OralGPT-Omni Analysis
+    description: Multimodal dental diagnostic vision-language model
     service:
       host: localhost
       port: 6604
@@ -203,10 +203,10 @@ tools:
       schema:
         analysis: str
 
-  # DentalGPT 分析
+  # DentalGPT Analysis
   dental_gpt:
-    name: DentalGPT 分析
-    description: 专业牙科 VLM 分析模型，提供详细诊断建议
+    name: DentalGPT Analysis
+    description: Specialized dental VLM analysis model providing detailed diagnostic recommendations
     service:
       host: localhost
       port: 6608
@@ -263,37 +263,37 @@ tools:
         analysis: str
         diagnosis: list[dict]
 
-# GPU 分配（测试环境 GPU 0-3）
+# GPU Allocation (Test environment GPU 0-3)
 gpu_allocation:
   gpu_0:
-    description: GPU 0 - YOLO 牙齿编号 + OralGPT 副本0 + DentalGPT 副本0
+    description: GPU 0 - YOLO Tooth Enumeration + OralGPT Replica 0 + DentalGPT Replica 0
     services:
       - yolo_enumeration
       - oral_gpt_0
       - dental_gpt_0
     total_memory: 40GB
   gpu_1:
-    description: GPU 1 - OralGPT 副本1 + DentalGPT 副本1
+    description: GPU 1 - OralGPT Replica 1 + DentalGPT Replica 1
     services:
       - oral_gpt_1
       - dental_gpt_1
     total_memory: 40GB
   gpu_2:
-    description: GPU 2 - TVEM + OralGPT 副本2 + DentalGPT 副本2
+    description: GPU 2 - TVEM + OralGPT Replica 2 + DentalGPT Replica 2
     services:
       - tvem
       - oral_gpt_2
       - dental_gpt_2
     total_memory: 40GB
   gpu_3:
-    description: GPU 3 - MedSAM + OralGPT 副本3 + DentalGPT 副本3
+    description: GPU 3 - MedSAM + OralGPT Replica 3 + DentalGPT Replica 3
     services:
       - medsam
       - oral_gpt_3
       - dental_gpt_3
     total_memory: 40GB
 
-# 启动优先级
+# Startup Priority
 startup_priority:
   yolo_enumeration: 1
   tvem: 3
@@ -301,10 +301,10 @@ startup_priority:
   oral_gpt: 5
   dental_gpt: 6
 
-# 服务冲突配置
+# Service Conflict Configuration
 conflicts:
   - group: vlm_services
-    description: VLM 服务可以同时运行但需要足够的 GPU 显存
+    description: VLM services can run concurrently but require sufficient GPU VRAM
     services:
       - oral_gpt
       - dental_gpt
