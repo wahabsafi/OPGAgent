@@ -36,22 +36,14 @@ if [ -n "$UV_DEFAULT_INDEX" ]; then
     echo -e "Using PyPI mirror: ${YELLOW}$UV_DEFAULT_INDEX${NC}"
 fi
 
-echo -e "${GREEN}Ensuring Python 3.10 is installed via uv...${NC}"
-uv python install 3.10
-PYTHON_BIN="3.10"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 echo -e "Using Python interpreter: ${YELLOW}$PYTHON_BIN${NC}"
 echo ""
 
-create_venv_if_needed() {
+create_venv() {
     local target_dir=$1
     cd "$target_dir"
-    if [ -d ".venv" ]; then
-        if ! .venv/bin/python --version 2>&1 | grep -q "3.10"; then
-            echo -e "${YELLOW}Existing .venv is not Python 3.10. Recreating with Python 3.10...${NC}"
-            rm -rf .venv
-            uv venv --python "$PYTHON_BIN" .venv
-        fi
-    else
+    if [ ! -d ".venv" ]; then
         uv venv --python "$PYTHON_BIN" .venv
     fi
 }
@@ -60,44 +52,35 @@ create_venv_if_needed() {
 echo -e "${GREEN}[1/5] Setting up yolo_enumeration environment...${NC}"
 cd "$SCRIPT_DIR/yolo_enumeration"
 if [ -f "pyproject.toml" ]; then
-    create_venv_if_needed "$SCRIPT_DIR/yolo_enumeration"
-    uv sync --python "$PYTHON_BIN"
+    uv sync
 else
-    create_venv_if_needed "$SCRIPT_DIR/yolo_enumeration"
+    create_venv "$SCRIPT_DIR/yolo_enumeration"
     uv pip install -r requirements.txt
 fi
 echo -e "${GREEN}✓ yolo_enumeration environment ready${NC}\n"
 
 # 2. TVEM (MaskDINO)
 echo -e "${GREEN}[2/5] Setting up tvem environment...${NC}"
-create_venv_if_needed "$SCRIPT_DIR/tvem"
-if [ -f "requirements-uv.txt" ]; then
-    VIRTUAL_ENV="$SCRIPT_DIR/tvem/.venv" uv pip install -r requirements-uv.txt
-fi
+create_venv "$SCRIPT_DIR/tvem"
+VIRTUAL_ENV="$SCRIPT_DIR/tvem/.venv" uv pip install -r requirements-uv.txt
 echo -e "${GREEN}✓ tvem environment ready${NC}\n"
 
 # 3. MedSAM
 echo -e "${GREEN}[3/5] Setting up medsam environment...${NC}"
-create_venv_if_needed "$SCRIPT_DIR/medsam"
-if [ -f "requirements.txt" ]; then
-    VIRTUAL_ENV="$SCRIPT_DIR/medsam/.venv" uv pip install -r requirements.txt
-fi
+create_venv "$SCRIPT_DIR/medsam"
+VIRTUAL_ENV="$SCRIPT_DIR/medsam/.venv" uv pip install -r requirements.txt
 echo -e "${GREEN}✓ medsam environment ready${NC}\n"
 
 # 4. OralGPT
 echo -e "${GREEN}[4/5] Setting up oral_gpt environment...${NC}"
-create_venv_if_needed "$SCRIPT_DIR/oral_gpt"
-if [ -f "requirements-uv.txt" ]; then
-    VIRTUAL_ENV="$SCRIPT_DIR/oral_gpt/.venv" uv pip install -r requirements-uv.txt
-fi
+create_venv "$SCRIPT_DIR/oral_gpt"
+VIRTUAL_ENV="$SCRIPT_DIR/oral_gpt/.venv" uv pip install -r requirements-uv.txt
 echo -e "${GREEN}✓ oral_gpt environment ready${NC}\n"
 
 # 5. DentalGPT
 echo -e "${GREEN}[5/5] Setting up dental_gpt environment...${NC}"
-create_venv_if_needed "$SCRIPT_DIR/dental_gpt"
-if [ -f "requirements-uv.txt" ]; then
-    VIRTUAL_ENV="$SCRIPT_DIR/dental_gpt/.venv" uv pip install -r requirements-uv.txt
-fi
+create_venv "$SCRIPT_DIR/dental_gpt"
+VIRTUAL_ENV="$SCRIPT_DIR/dental_gpt/.venv" uv pip install -r requirements-uv.txt
 echo -e "${GREEN}✓ dental_gpt environment ready${NC}\n"
 
 cd "$SCRIPT_DIR"
