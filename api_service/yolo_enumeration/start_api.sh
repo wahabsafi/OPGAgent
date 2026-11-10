@@ -35,7 +35,10 @@ export CUDA_VISIBLE_DEVICES=$GPU
 
 # Try activating virtual environment
 PROJECT_VENV="/data/zhaolin/tool_env/yolo_enumeration/.venv"
-if [ -f "$PROJECT_VENV/bin/activate" ]; then
+if [ -f ".venv/bin/activate" ]; then
+    echo -e "${GREEN}Using local virtual environment: $SCRIPT_DIR/.venv${NC}"
+    source ".venv/bin/activate"
+elif [ -f "$PROJECT_VENV/bin/activate" ]; then
     echo -e "${GREEN}Using standalone virtual environment: $PROJECT_VENV${NC}"
     source "$PROJECT_VENV/bin/activate"
 elif [ -f "../../.venv/bin/activate" ]; then

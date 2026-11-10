@@ -40,7 +40,11 @@ export CUDA_VISIBLE_DEVICES=$GPU
 
 # Start service
 PROJECT_VENV="/data/zhaolin/tool_env/OralGPT-omni/.venv"
-if [ -f "$PROJECT_VENV/bin/activate" ]; then
+if [ -f ".venv/bin/activate" ]; then
+    echo -e "${GREEN}Using local virtual environment: $SCRIPT_DIR/.venv${NC}"
+    source ".venv/bin/activate"
+    python api_server.py --host "$HOST" --port "$PORT"
+elif [ -f "$PROJECT_VENV/bin/activate" ]; then
     echo -e "${GREEN}Using standalone virtual environment: $PROJECT_VENV${NC}"
     source "$PROJECT_VENV/bin/activate"
     python api_server.py --host "$HOST" --port "$PORT"

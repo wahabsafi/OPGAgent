@@ -44,7 +44,11 @@ export CUDA_VISIBLE_DEVICES=$GPU
 
 # Start service
 PROJECT_VENV="/data/zhaolin/tool_env/dentalGPT/.venv"
-if [ -f "$PROJECT_VENV/bin/activate" ]; then
+if [ -f ".venv/bin/activate" ]; then
+    echo -e "${GREEN}Using local virtual environment: $SCRIPT_DIR/.venv${NC}"
+    source ".venv/bin/activate"
+    API_PORT=$PORT API_HOST=$HOST python api_server.py
+elif [ -f "$PROJECT_VENV/bin/activate" ]; then
     echo -e "${GREEN}Using standalone virtual environment: $PROJECT_VENV${NC}"
     source "$PROJECT_VENV/bin/activate"
     API_PORT=$PORT API_HOST=$HOST python api_server.py
