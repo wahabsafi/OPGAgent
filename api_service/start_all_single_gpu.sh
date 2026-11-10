@@ -46,6 +46,21 @@ start_service() {
     cd "$SCRIPT_DIR"
 }
 
+# Check if GGUF llama-server should be started
+PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
+GGUF_DIR="$PROJECT_ROOT/weights/dental_gpt_gguf"
+if [ -d "$GGUF_DIR" ] || [ "$USE_LLAMA_SERVER" = "1" ] || [ -n "$LLAMA_SERVER_URL" ]; then
+    echo -e "${YELLOW}=== Starting llama-server for GGUF model ===${NC}"
+    if [ -z "$LLAMA_SERVER_URL" ]; then
+        bash "$SCRIPT_DIR/start_llama_server.sh"
+        export LLAMA_SERVER_URL="http://127.0.0.1:8090"
+        echo "Waiting 3 seconds for llama-server to initialize..."
+        sleep 3
+    else
+        echo "Using existing LLAMA_SERVER_URL: $LLAMA_SERVER_URL"
+    fi
+fi
+
 # 1. Start YOLO (Tooth Enumeration)
 echo -e "${YELLOW}=== [1/5] Starting YOLO Enumeration ===${NC}"
 start_service "yolo_enumeration" "yolo_enumeration" 6600 0
@@ -63,12 +78,12 @@ sleep 2
 
 # 4. Start OralGPT (Single Replica on Port 6604)
 echo -e "${YELLOW}=== [4/5] Starting OralGPT (Single Replica) ===${NC}"
-start_service "oral_gpt" "oral_gpt" 6604 0
+start_service "oral_gpt" "oral_gpt" 6604 0 "${LLAMA_SERVER_URL:+LLAMA_SERVER_URL=$LLAMA_SERVER_URL}"
 sleep 3
 
 # 5. Start DentalGPT (Single Replica on Port 6608)
 echo -e "${YELLOW}=== [5/5] Starting DentalGPT (Single Replica) ===${NC}"
-start_service "dental_gpt" "dental_gpt" 6608 0
+start_service "dental_gpt" "dental_gpt" 6608 0 "${LLAMA_SERVER_URL:+LLAMA_SERVER_URL=$LLAMA_SERVER_URL}"
 sleep 3
 
 echo ""

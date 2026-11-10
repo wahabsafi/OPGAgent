@@ -21,7 +21,7 @@ echo -e "${CYAN}========================================${NC}"
 echo ""
 
 # All service ports
-ALL_PORTS=(6600 6602 6603 6604 6605 6606 6607 6608 6609 6610 6611)
+ALL_PORTS=(6600 6602 6603 6604 6605 6606 6607 6608 6609 6610 6611 8090)
 
 # Port to name mapping
 declare -A PORT_NAMES=(
@@ -36,6 +36,7 @@ declare -A PORT_NAMES=(
     [6609]="dental_gpt_1"
     [6610]="dental_gpt_2"
     [6611]="dental_gpt_3"
+    [8090]="llama_server"
 )
 
 for port in "${ALL_PORTS[@]}"; do

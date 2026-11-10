@@ -49,12 +49,22 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # 模型配置（env DENTAL_GPT_MODEL_PATH 可覆盖；默认 HF repo id 以便首次自动下载）
 LOCAL_MODEL_PATH = os.environ.get("DENTAL_GPT_MODEL_PATH", "Eric3200/DentalGPT-7B-1026")
 PROCESSOR_MODEL = os.environ.get("DENTAL_GPT_PROCESSOR", "Qwen/Qwen2.5-VL-7B-Instruct")
+LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL") or os.environ.get("DENTAL_GPT_LLAMA_URL")
 
 
 def load_model():
     """加载模型和处理器"""
     global model, processor
     
+    if LLAMA_SERVER_URL:
+        logger.info(f"Using llama-server backend at {LLAMA_SERVER_URL}")
+        try:
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=5)
+            logger.info(f"llama-server status: {r.status_code}")
+        except Exception as e:
+            logger.warning(f"Could not connect to llama-server at {LLAMA_SERVER_URL}: {e}")
+        return
+
     try:
         logger.info("正在加载 processor...")
         processor = AutoProcessor.from_pretrained(
@@ -104,6 +114,19 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
+    if LLAMA_SERVER_URL:
+        try:
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3)
+            is_healthy = r.status_code == 200
+        except Exception:
+            is_healthy = False
+        return {
+            "status": "healthy" if is_healthy else "unhealthy",
+            "model_loaded": is_healthy,
+            "backend": "llama-server",
+            "llama_server_url": LLAMA_SERVER_URL,
+            "timestamp": datetime.now().isoformat()
+        }
     model_loaded = model is not None and processor is not None
     return {
         "status": "healthy" if model_loaded else "unhealthy",
@@ -132,13 +155,57 @@ async def analyze_image(
     返回:
         JSON 响应，包含分析结果
     """
-    if model is None or processor is None:
+    if not LLAMA_SERVER_URL and (model is None or processor is None):
         raise HTTPException(status_code=503, detail="模型未加载")
     
     try:
         # 读取图像
         logger.info(f"接收到图像分析请求: {image.filename}")
         contents = await image.read()
+
+        if LLAMA_SERVER_URL:
+            b64_img = base64.b64encode(contents).decode("utf-8")
+            img_data_url = f"data:image/jpeg;base64,{b64_img}"
+
+            def _generate_text_llama(prompt_text: str) -> str:
+                payload = {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image_url", "image_url": {"url": img_data_url}},
+                                {"type": "text", "text": prompt_text}
+                            ]
+                        }
+                    ],
+                    "temperature": float(temperature),
+                    "max_tokens": max_new_tokens
+                }
+                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120)
+                res.raise_for_status()
+                return res.json()["choices"][0]["message"]["content"]
+
+            if with_report:
+                report_prompt = "\n".join(
+                    [
+                        "你是一名牙科放射科专家。",
+                        "任务：请基于该 OPG 生成 1-4 行客观、简短的放射学报告。",
+                        "规则：使用 FDI 牙号；避免臆测；仅输出报告正文。",
+                    ]
+                )
+                report_text = _generate_text_llama(report_prompt)
+                answer_text = _generate_text_llama(question)
+                output_text = [f"REPORT: {(report_text or '').strip()}\nFINAL_ANSWER: {(answer_text or '').strip()}"]
+            else:
+                output_text = [_generate_text_llama(question)]
+
+            return JSONResponse(content={
+                "success": True,
+                "question": question,
+                "answer": output_text[0],
+                "timestamp": datetime.now().isoformat()
+            })
+
         pil_image = Image.open(io.BytesIO(contents))
         
         def _generate_text(prompt_text: str) -> str:

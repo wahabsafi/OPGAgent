@@ -15,6 +15,7 @@ sys.path.insert(0, str(ORALGPT_PATH))
 
 # 延迟导入（避免模块级别执行）
 infer_module = None
+LLAMA_SERVER_URL = os.environ.get("LLAMA_SERVER_URL") or os.environ.get("ORAL_GPT_LLAMA_URL")
 
 app = FastAPI(
     title="OralGPT-omni API",
@@ -33,6 +34,11 @@ service_status = {
 async def startup_event():
     """服务启动时加载模型"""
     global infer_module
+    if LLAMA_SERVER_URL:
+        print(f"🔧 Using llama-server backend at {LLAMA_SERVER_URL} for OralGPT...")
+        service_status["model_loaded"] = True
+        return
+
     print("🔧 初始化 OralGPT-omni 模型...")
     from infer_module import initialize_model, run_inference
     import infer_module as im
@@ -45,6 +51,19 @@ async def startup_event():
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
+    if LLAMA_SERVER_URL:
+        try:
+            import requests
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3)
+            is_healthy = r.status_code == 200
+        except Exception:
+            is_healthy = False
+        return {
+            "status": "healthy" if is_healthy else "unhealthy",
+            "model_loaded": is_healthy,
+            "backend": "llama-server",
+            "service": "oral_gpt_omni"
+        }
     return {
         "status": "healthy" if service_status["model_loaded"] else "loading",
         "model_loaded": service_status["model_loaded"],
@@ -76,6 +95,53 @@ async def analyze(
     
     if not service_status["model_loaded"]:
         raise HTTPException(status_code=503, detail="模型正在加载中")
+
+    if LLAMA_SERVER_URL:
+        import base64
+        import requests
+        try:
+            content = await file.read()
+            b64_img = base64.b64encode(content).decode("utf-8")
+            img_data_url = f"data:image/jpeg;base64,{b64_img}"
+
+            def _generate_text_llama(prompt_text: str) -> str:
+                payload = {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image_url", "image_url": {"url": img_data_url}},
+                                {"type": "text", "text": prompt_text}
+                            ]
+                        }
+                    ],
+                    "temperature": float(temperature),
+                    "max_tokens": 4096
+                }
+                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120)
+                res.raise_for_status()
+                return res.json()["choices"][0]["message"]["content"]
+
+            if with_report:
+                report_prompt = "\n".join(
+                    [
+                        "You are a dental radiologist.",
+                        "Task: Based on this OPG, generate a 1-4 line objective, concise radiological report.",
+                        "Rules: Use FDI tooth notation; avoid speculation; output only the report text.",
+                    ]
+                )
+                report_text = _generate_text_llama(report_prompt)
+                answer_text = _generate_text_llama(prompt)
+                analysis = f"REPORT: {(report_text or '').strip()}\nFINAL_ANSWER: {(answer_text or '').strip()}"
+            else:
+                analysis = _generate_text_llama(prompt)
+
+            return {
+                "analysis": analysis,
+                "model": "DentalGPT-GGUF"
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"LLaMA server analyze failed: {e}")
     
     try:
         # 保存上传的文件
