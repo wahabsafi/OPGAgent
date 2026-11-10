@@ -15,16 +15,20 @@ PORT="${LLAMA_PORT:-8090}"
 HOST="${LLAMA_HOST:-127.0.0.1}"
 
 # Look for llama-server
-if [ ! -f "$LLAMA_SERVER_BIN" ]; then
-    if command -v llama-server > /dev/null 2>&1; then
-        LLAMA_SERVER_BIN="llama-server"
-    elif [ -f "$HOME/llama.cpp/llama-server" ]; then
-        LLAMA_SERVER_BIN="$HOME/llama.cpp/llama-server"
-    else
-        echo "Error: llama-server executable not found at $LLAMA_SERVER_BIN"
-        echo "Please download/install llama.cpp or set LLAMA_SERVER_BIN"
-        exit 1
-    fi
+FOUND_BIN=$(find "$HOME/llama.cpp" -name "llama-server" 2>/dev/null | head -n 1)
+if [ -n "$FOUND_BIN" ] && [ -x "$FOUND_BIN" ]; then
+    LLAMA_SERVER_BIN="$FOUND_BIN"
+elif [ -n "$FOUND_BIN" ] && [ -f "$FOUND_BIN" ]; then
+    chmod +x "$FOUND_BIN"
+    LLAMA_SERVER_BIN="$FOUND_BIN"
+elif command -v llama-server > /dev/null 2>&1; then
+    LLAMA_SERVER_BIN="llama-server"
+elif [ -f "$LLAMA_SERVER_BIN" ]; then
+    chmod +x "$LLAMA_SERVER_BIN"
+else
+    echo "Error: llama-server executable not found."
+    echo "Searched $HOME/llama.cpp and PATH. Please check installation."
+    exit 1
 fi
 
 if [ ! -f "$MODEL_PATH" ]; then
