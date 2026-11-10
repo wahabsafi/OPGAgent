@@ -26,6 +26,16 @@ if ! command -v uv > /dev/null 2>&1; then
     exit 1
 fi
 
+if [ -n "$MIRROR" ]; then
+    export UV_DEFAULT_INDEX="$MIRROR"
+elif [ -n "$PIP_INDEX_URL" ] && [ -z "$UV_DEFAULT_INDEX" ]; then
+    export UV_DEFAULT_INDEX="$PIP_INDEX_URL"
+fi
+
+if [ -n "$UV_DEFAULT_INDEX" ]; then
+    echo -e "Using PyPI mirror: ${YELLOW}$UV_DEFAULT_INDEX${NC}"
+fi
+
 PYTHON_BIN="${PYTHON_BIN:-python3.10}"
 if ! command -v "$PYTHON_BIN" > /dev/null 2>&1; then
     PYTHON_BIN="python3"
