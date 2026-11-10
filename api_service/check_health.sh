@@ -17,19 +17,29 @@ echo -e "${CYAN}========================================${NC}"
 echo ""
 
 # Service configuration
-declare -A SERVICES=(
-    [6600]="yolo_enumeration"
-    [6602]="tvem"
-    [6603]="medsam"
-    [6604]="oral_gpt_0"
-    [6605]="oral_gpt_1"
-    [6606]="oral_gpt_2"
-    [6607]="oral_gpt_3"
-    [6608]="dental_gpt_0"
-    [6609]="dental_gpt_1"
-    [6610]="dental_gpt_2"
-    [6611]="dental_gpt_3"
-)
+if [ "$CHECK_ALL_REPLICAS" = "1" ]; then
+    declare -A SERVICES=(
+        [6600]="yolo_enumeration"
+        [6602]="tvem"
+        [6603]="medsam"
+        [6604]="oral_gpt_0"
+        [6605]="oral_gpt_1"
+        [6606]="oral_gpt_2"
+        [6607]="oral_gpt_3"
+        [6608]="dental_gpt_0"
+        [6609]="dental_gpt_1"
+        [6610]="dental_gpt_2"
+        [6611]="dental_gpt_3"
+    )
+else
+    declare -A SERVICES=(
+        [6600]="yolo_enumeration"
+        [6602]="tvem"
+        [6603]="medsam"
+        [6604]="oral_gpt"
+        [6608]="dental_gpt"
+    )
+fi
 
 # Statistics
 total=0

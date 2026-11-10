@@ -62,7 +62,7 @@ tools:
       unload_all: /unload_all
     startup_script: api_service/tvem/start_api.sh
     gpu:
-      device: 2
+      device: 0
       memory_estimate: 8-10GB per model
     features:
       supports_unload: true
@@ -127,7 +127,7 @@ tools:
       health: /health
     startup_script: api_service/medsam/start_api.sh
     gpu:
-      device: 3
+      device: 0
       memory_estimate: 4GB
     features:
       supports_unload: true
@@ -156,13 +156,10 @@ tools:
       base_url: http://localhost:6604
       env_type: uv
       load_balancing:
-        enabled: true
+        enabled: false
         strategy: round_robin
         endpoints:
           - http://localhost:6604
-          - http://localhost:6605
-          - http://localhost:6606
-          - http://localhost:6607
     endpoints:
       analyze: /analyze
       health: /health
@@ -173,19 +170,13 @@ tools:
       memory_estimate: 10-12GB
       memory_per_replica: 12000
     replicas:
-      enabled: true
-      count: 4
+      enabled: false
+      count: 1
       port_start: 6604
-      port_end: 6607
+      port_end: 6604
       gpu_mapping:
         - port: 6604
           gpu: 0
-        - port: 6605
-          gpu: 1
-        - port: 6606
-          gpu: 2
-        - port: 6607
-          gpu: 3
     features:
       supports_unload: true
       supports_batch: false
@@ -213,13 +204,10 @@ tools:
       base_url: http://localhost:6608
       env_type: uv
       load_balancing:
-        enabled: true
+        enabled: false
         strategy: round_robin
         endpoints:
           - http://localhost:6608
-          - http://localhost:6609
-          - http://localhost:6610
-          - http://localhost:6611
     endpoints:
       analyze: /analyze
       health: /health
@@ -232,19 +220,13 @@ tools:
       memory_estimate: 15-17GB
       memory_per_replica: 17000
     replicas:
-      enabled: true
-      count: 4
+      enabled: false
+      count: 1
       port_start: 6608
-      port_end: 6611
+      port_end: 6608
       gpu_mapping:
         - port: 6608
           gpu: 0
-        - port: 6609
-          gpu: 1
-        - port: 6610
-          gpu: 2
-        - port: 6611
-          gpu: 3
     features:
       supports_unload: true
       supports_batch: false

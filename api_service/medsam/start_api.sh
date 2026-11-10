@@ -41,11 +41,11 @@ else
 fi
 
 # Check model file
-MODEL_PATH="MedSAM/work_dir/MedSAM/medsam_vit_b.pth"
+MODEL_PATH="${MEDSAM_MODEL_PATH:-MedSAM/work_dir/MedSAM/medsam_vit_b.pth}"
 if [ ! -f "$MODEL_PATH" ]; then
     echo -e "${YELLOW}⚠️  Model file not found: $MODEL_PATH${NC}"
-    echo "Please download the model from:"
-    echo "https://github.com/bowang-lab/MedSAM"
+    echo "Please download the model from Hugging Face or set MEDSAM_MODEL_PATH:"
+    echo "https://huggingface.co/wanglab/medsam-vit-base"
     echo ""
 fi
 
