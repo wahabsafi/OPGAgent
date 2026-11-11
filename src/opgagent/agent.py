@@ -184,7 +184,7 @@ def build_chat_model(
         if not gemini_key:
             raise RuntimeError("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY，无法调用 Gemini 模型。")
         if not model or model.startswith("gpt") or model.startswith("qwen"):
-            model_name = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash"
+            model_name = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
         else:
             model_name = model
         max_out = max_tokens if max_tokens is not None else 65536
@@ -195,8 +195,8 @@ def build_chat_model(
                 google_api_key=gemini_key,
                 temperature=temperature,
                 max_output_tokens=max_out,
-                timeout=120,
-                max_retries=3,
+                timeout=180,
+                max_retries=5,
             )
         except ImportError as e:
             raise RuntimeError(f"使用 Gemini 需安装 langchain-google-genai: {e}") from e

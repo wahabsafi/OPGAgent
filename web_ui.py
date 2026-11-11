@@ -91,8 +91,10 @@ def _parse_engine_choice(engine_choice: str):
         return "openai", "gpt-4o-mini"
     elif "OpenAI" in engine_choice:
         return "openai", "gpt-4o"
+    elif "Gemini (gemini-1.5-flash)" in engine_choice:
+        return "gemini", "gemini-1.5-flash"
     elif "Gemini" in engine_choice:
-        return "gemini", "gemini-3.5-flash"
+        return "gemini", "gemini-2.0-flash"
     elif "DentalGPT" in engine_choice:
         return "local", "DentalGPT-7B"
     elif "Custom" in engine_choice:
@@ -749,7 +751,8 @@ with gr.Blocks(title="OPGAgent: Dental AI Diagnostic & Model Suite", theme=gr.th
                             label="🧠 Reasoning Engine (ReAct Brain)",
                             choices=[
                                 "Local Brain Qwen2.5-7B (A100 Port 8091 - Recommended)",
-                                "Google Gemini (gemini-3.5-flash)",
+                                "Google Gemini (gemini-2.0-flash)",
+                                "Google Gemini (gemini-1.5-flash)",
                                 "OpenAI (GPT-4o)",
                                 "OpenAI (GPT-4o-mini)",
                                 "Local VLM (DentalGPT - Port 8090)",
@@ -766,7 +769,7 @@ with gr.Blocks(title="OPGAgent: Dental AI Diagnostic & Model Suite", theme=gr.th
                             )
                             model_name_input = gr.Textbox(
                                 label="Model Name (Optional)",
-                                placeholder="e.g. gpt-4o, gpt-4o-mini, gemini-3.5-flash, DentalGPT-7B",
+                                placeholder="e.g. gpt-4o, gpt-4o-mini, gemini-2.0-flash, gemini-1.5-flash, DentalGPT-7B",
                             )
                         base_url_input = gr.Textbox(
                             label="Custom Base URL (Optional)",
