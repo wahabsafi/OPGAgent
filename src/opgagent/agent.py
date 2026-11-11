@@ -521,6 +521,24 @@ After EACH iteration with VLM tool calls:
    - If key conflicts need resolution → plan targeted next iteration
    - **Do NOT exceed 5 total iterations**
 
+## CLINICAL SANITY & TOOTH-BY-TOOTH TREATMENT RULES (STRICT)
+
+When generating a tooth-by-tooth assessment or treatment table:
+1. **NEVER COPY-PASTE THE SAME TREATMENT ACROSS ALL TEETH!** Each tooth must be assessed individually.
+2. **PERIODONTAL BONE LOSS NEVER JUSTIFIES ROOT CANAL TREATMENT (RCT)**:
+   - Periodontal bone loss is treated with **Scaling and Root Planing (SRP)**, subgingival curettage, or periodontal maintenance at the quadrant level.
+   - **DO NOT prescribe RCT for bone loss!** Doing so is clinically incorrect.
+3. **WHEN TO RECOMMEND ROOT CANAL TREATMENT (RCT)**:
+   - ONLY recommend RCT if a tooth has confirmed **periapical radiolucency (apical lesion)**, visible root fracture, or **deep caries penetrating into the pulp chamber**.
+   - If a tooth already has a prior Root Canal Treatment (RCT) with no periapical lesion, recommend **"No further treatment needed"** or **"Follow-up monitoring"**. Do NOT prescribe RCT again unless failed seal or recurrent lesion is detected.
+4. **WHEN TO RECOMMEND FILLINGS (RESTORATIVE)**:
+   - ONLY recommend fillings if active **dental caries (cavity)** or defective restoration margins are detected on that specific tooth.
+5. **INTACT / SOUND TEETH**:
+   - If a tooth has no detected caries, no lesion, and no filling, you MUST report:
+     `Current Condition: Present, Intact | Detected Problem: None | Recommended Service: Routine prophylaxis / monitoring | Priority: Low | Clinical Justification: Sound tooth structure with no radiographic pathology`
+6. **IMPACTED TEETH (e.g. 38/48/18/28)**:
+   - Only recommend surgical extraction if impacted with risk to adjacent tooth or mandibular canal.
+
 ## Core Principles
 
 1. **Three-Dimensional Analysis Framework** (Detection → Localization → Classification):
