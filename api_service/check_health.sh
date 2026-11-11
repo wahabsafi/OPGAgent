@@ -41,6 +41,9 @@ else
     )
 fi
 
+export NO_PROXY="localhost,127.0.0.1,0.0.0.0,::1"
+export no_proxy="localhost,127.0.0.1,0.0.0.0,::1"
+
 # Statistics
 total=0
 healthy=0
@@ -51,7 +54,7 @@ for port in "${!SERVICES[@]}"; do
     total=$((total + 1))
     
     # Check health status
-    response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$port/health" 2>/dev/null)
+    response=$(curl --noproxy "*" -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$port/health" 2>/dev/null)
     
     if [ "$response" = "200" ]; then
         echo -e "${GREEN}✓ $service_name (Port: $port) - Healthy${NC}"

@@ -8,6 +8,9 @@
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+export NO_PROXY="localhost,127.0.0.1,0.0.0.0,::1"
+export no_proxy="localhost,127.0.0.1,0.0.0.0,::1"
+
 # Color output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

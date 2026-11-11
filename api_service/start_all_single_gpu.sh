@@ -53,17 +53,21 @@ start_service() {
     cd "$SCRIPT_DIR"
 }
 
+# Ensure local curls bypass any active proxy
+export NO_PROXY="localhost,127.0.0.1,0.0.0.0,::1"
+export no_proxy="localhost,127.0.0.1,0.0.0.0,::1"
+
 # Check if GGUF llama-server should be started
 GGUF_DIR="$PROJECT_ROOT/weights/dental_gpt_gguf"
 if [ -d "$GGUF_DIR" ] || [ "$USE_LLAMA_SERVER" = "1" ] || [ -n "$LLAMA_SERVER_URL" ]; then
     echo -e "${YELLOW}=== Checking / Starting llama-server for GGUF model ===${NC}"
     export LLAMA_SERVER_URL="${LLAMA_SERVER_URL:-http://127.0.0.1:8090}"
-    if ! curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
+    if ! curl --noproxy "*" -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
         echo "Launching llama-server on port 8090..."
         bash "$SCRIPT_DIR/start_llama_server.sh"
         echo "Waiting for llama-server to load model and report healthy..."
-        for i in {1..20}; do
-            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
+        for i in {1..35}; do
+            if curl --noproxy "*" -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
                 echo -e "${GREEN}✓ llama-server is ready!${NC}"
                 break
             fi
