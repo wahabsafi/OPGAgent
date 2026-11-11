@@ -120,6 +120,25 @@ class TokenUsageTracker(BaseCallbackHandler):
         }
 
 
+class StreamingConsoleCallbackHandler(BaseCallbackHandler):
+    """Real-time console logger for ReAct agent steps"""
+    def on_llm_start(self, serialized, prompts, **kwargs):
+        print("🧠 [ReAct Brain] Gemini is reasoning...", flush=True)
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        tool_name = serialized.get("name", "tool") if isinstance(serialized, dict) else str(serialized)
+        inp_str = str(input_str)
+        if len(inp_str) > 80:
+            inp_str = inp_str[:80] + "..."
+        print(f"🔧 [ReAct Step] Calling tool `{tool_name}`: {inp_str}", flush=True)
+
+    def on_tool_end(self, output, **kwargs):
+        out_str = str(output)
+        if len(out_str) > 100:
+            out_str = out_str[:100] + "..."
+        print(f"   ↳ Tool Result: {out_str}", flush=True)
+
+
 def _data_url(image_path: str) -> str:
     """将图像转换为 data URL"""
     p = Path(image_path)
@@ -802,7 +821,7 @@ Now analyze the user-provided OPG image."""
                             {"messages": messages},
                             config={
                                 **run_config,
-                                "callbacks": [self.token_tracker],
+                                "callbacks": [self.token_tracker, StreamingConsoleCallbackHandler()],
                                 "recursion_limit": max_iterations * 2 + 5  # 每次迭代可能有 2 步（AI + Tool）
                             }
                         )
