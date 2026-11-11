@@ -187,6 +187,8 @@ def build_chat_model(
                 google_api_key=api_key,
                 temperature=temperature,
                 max_output_tokens=max_out,
+                timeout=120,
+                max_retries=3,
             )
         except ImportError as e:
             raise RuntimeError(f"使用 Gemini 需安装 langchain-google-genai: {e}") from e

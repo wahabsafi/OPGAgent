@@ -1140,6 +1140,27 @@ IMPORTANT INSTRUCTIONS:
         try:
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key or api_key.startswith("sk-..."):
+                # 优先使用本地 A100 GPU 上的 llama-server (70 tok/s)，避免向 Gemini 重复发送大图请求造成代理拥堵
+                llama_url = os.environ.get("LLAMA_SERVER_URL", "http://127.0.0.1:8090")
+                try:
+                    payload = {
+                        "model": "DentalGPT-7B",
+                        "messages": [{"role": "user", "content": content}],
+                        "temperature": 0.3,
+                        "max_tokens": min(max_tokens, 2048)
+                    }
+                    res = requests.post(
+                        f"{llama_url}/v1/chat/completions",
+                        json=payload,
+                        timeout=45,
+                        proxies={"http": None, "https": None}
+                    )
+                    if res.status_code == 200:
+                        ans = res.json()["choices"][0]["message"]["content"]
+                        return {"model": "DentalGPT-7B (local)", "response": ans, "status": "success", "max_tokens": max_tokens}
+                except Exception as ex:
+                    logger.warning(f"本地 llama-server 快速响应失败，回退到云端: {ex}")
+
                 if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
                     logger.info("OPENAI_API_KEY 未设置或为占位符，自动使用 Gemini")
                     return self._call_llm_zoo_google(image_path, prompt, analysis_level)
@@ -1204,6 +1225,8 @@ IMPORTANT INSTRUCTIONS:
                 google_api_key=api_key,
                 temperature=0.3,  # Gemini 温度 0.3
                 max_output_tokens=max_tokens,
+                timeout=60,
+                max_retries=2,
             )
             response = model.invoke([msg])
             raw_content = response.content if hasattr(response, "content") else str(response)
