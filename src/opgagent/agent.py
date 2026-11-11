@@ -486,7 +486,10 @@ class OPGReActAgent:
    - Use `get_quadrant(quadrant_names='Q1,Q2,Q3,Q4')` ONCE: it instantly returns all 4 quadrants and their teeth.
 3. **DentalGPT & OralGPT MUST only be called ONCE with analysis_type='overall'**:
    - NEVER call `dental_expert_analysis` or `oral_expert_analysis` on individual teeth. They are trained strictly for whole-OPG analysis.
-4. **Never invoke more than 6 tools in a single iteration.**
+4. **NEVER call `resolve_finding_disagreement` repeatedly or in duplicate!**
+   - Call it AT MOST ONCE, and ONLY if VLMs actually contradict each other on FDI tooth number.
+   - If VLMs agree (e.g., both say tooth 38 is impacted), DO NOT call `resolve_finding_disagreement`.
+5. **Never invoke more than 4 tools in a single iteration.** Never repeat identical tool calls.
 
 ## OPG ORIENTATION (CRITICAL)
 
@@ -698,11 +701,11 @@ If sources **agree on disease presence** but **disagree on classification/severi
 When VLMs **agree on finding presence** but **disagree on location/FDI**:
 1. **Confirm the finding EXISTS** (majority vote on presence)
 2. **For position**: 
-   - If Tool detected it → use Tool's FDI (gold standard for position)
-   - If Tool did NOT detect → **CALL `resolve_finding_disagreement` tool** to determine FDI
+   - If Tool detected it OR VLMs agree on the tooth number → use that FDI directly (DO NOT call resolve_finding_disagreement).
+   - ONLY call `resolve_finding_disagreement` (at most 1 time) if VLMs explicitly contradict each other on different tooth numbers.
 
 ### Resolving Disagreements with Subagent
-**IMPORTANT**: For each confirmed finding (__RESOLVE_WHEN__) with position OR classification disagreement, call `resolve_finding_disagreement`:
+**IMPORTANT**: Call `resolve_finding_disagreement` ONLY when there is an actual conflict between sources. Never call it in duplicate:
 
 **When to call**:
 - Finding is CONFIRMED (__RESOLVE_WHEN__ agree on presence)

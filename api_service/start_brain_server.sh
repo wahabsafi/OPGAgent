@@ -57,6 +57,7 @@ echo "========================================="
 nohup "$LLAMA_SERVER_BIN" \
     -m "$MODEL_PATH" \
     -c "$CTX_SIZE" \
+    -n 4096 \
     -ngl 99 \
     --host "$HOST" \
     --port "$PORT" > "$SCRIPT_DIR/logs/brain_server.log" 2>&1 &
