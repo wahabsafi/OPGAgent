@@ -130,7 +130,7 @@ def analyze_opg(image, question):
 def set_preset(text):
     return text
 
-with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation", theme=gr.themes.Soft()) as demo:
+with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
     gr.Markdown(
         """
         # 🦷 OPGAgent: Autonomous Dental Panoramic X-ray Interpretation
