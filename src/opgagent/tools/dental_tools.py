@@ -1165,7 +1165,7 @@ IMPORTANT INSTRUCTIONS:
     def _call_llm_zoo_google(self, image_path: str, prompt: str, analysis_level: str = "overall") -> Dict[str, Any]:
         """
         仅调用 Google Gemini（Gemini Developer API），优先 GEMINI_API_KEY。
-        模型优先 GEMINI_MODEL 环境变量，默认 gemini-3.8-flash。温度 0.3。图像缩放到短边 768。
+        模型优先 GEMINI_MODEL 环境变量，默认 gemini-3.5-flash。温度 0.3。图像缩放到短边 768。
         analysis_level 控制 max_output_tokens（整体为原值 4 倍）:
         - "overall": 8192, "quadrant": 4096, "tooth": 1024, "binary": 64
         """
@@ -1173,7 +1173,7 @@ IMPORTANT INSTRUCTIONS:
         if resolved and os.path.isfile(resolved):
             image_path = resolved
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        model_name = os.environ.get("GEMINI_MODEL") or "gemini-3.8-flash"
+        model_name = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash"
         if not api_key:
             logger.error("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY")
             return {"model": model_name, "error": "GEMINI_API_KEY or GOOGLE_API_KEY not set", "status": "error"}

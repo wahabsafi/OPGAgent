@@ -154,7 +154,7 @@ def build_chat_model(
         if not api_key:
             raise RuntimeError("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY，无法调用 Gemini 模型。")
         if not model or model.startswith("gpt") or model.startswith("qwen"):
-            model_name = os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
+            model_name = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash"
         else:
             model_name = model
         max_out = max_tokens if max_tokens is not None else 65536
@@ -301,7 +301,7 @@ class OPGReActAgent:
         model_name = os.getenv("LLM_MODEL")
         if not model_name:
             if provider == "gemini":
-                model_name = os.getenv("GEMINI_MODEL") or "gemini-3.8-flash"
+                model_name = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash"
             else:
                 model_name = llm_config.get("model") or "gpt-5.2"
 
