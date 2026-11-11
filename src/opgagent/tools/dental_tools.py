@@ -1998,6 +1998,9 @@ Now convert the report to structured JSON:"""
                 result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
             else:
                 result = self._call_llm_zoo_openai("", conversion_prompt, analysis_level="overall")
+                if result.get("status") == "error" and has_gemini:
+                    logger.info("OpenAI 报告转换失败（如 429 配额不足），回退至 Gemini 执行结构化转换")
+                    result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
             if result.get("status") == "error":
                 return json.dumps({"error": result.get("error", "conversion failed"), "status": "error"}, ensure_ascii=False)
             

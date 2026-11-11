@@ -806,6 +806,10 @@ Now analyze the user-provided OPG image."""
         # STEP 0: Preload detection cache by running run_all_detections at startup
         abs_image_path = str(Path(image_path).resolve())
         token = current_image_path_ctx.set(abs_image_path)
+        teeth_fdi_count = 0
+        quadrant_count = 0
+        detected_fdi = []
+        not_detected_fdi = []
         try:
             logger.info(f"Preloading detection cache for: {abs_image_path}")
             from langchain_core.runnables import RunnableConfig
@@ -813,8 +817,18 @@ Now analyze the user-provided OPG image."""
             preload_result = self.toolkit.run_all_detections(abs_image_path, config=preload_config)
             import json
             preload_data = json.loads(preload_result)
-            teeth_fdi_count = len(preload_data.get("teeth_fdi", {})) if isinstance(preload_data.get("teeth_fdi"), dict) else 0
+            teeth_fdi_map = preload_data.get("teeth_fdi", {}) if isinstance(preload_data.get("teeth_fdi"), dict) else {}
+            detected_fdi = sorted([k for k in teeth_fdi_map.keys() if k != "error"])
+            teeth_fdi_count = len(detected_fdi)
             quadrant_count = len([k for k in preload_data.get("quadrants", {}).keys() if k not in ["error"]]) if isinstance(preload_data.get("quadrants"), dict) else 0
+
+            ALL_PERMANENT_FDI = [
+                "18", "17", "16", "15", "14", "13", "12", "11",
+                "21", "22", "23", "24", "25", "26", "27", "28",
+                "38", "37", "36", "35", "34", "33", "32", "31",
+                "41", "42", "43", "44", "45", "46", "47", "48"
+            ]
+            not_detected_fdi = [f for f in ALL_PERMANENT_FDI if f not in detected_fdi]
             logger.info(f"✓ Detection cache preloaded: {teeth_fdi_count} teeth FDI, {quadrant_count} quadrants")
         except Exception as e:
             logger.warning(f"Detection cache preload failed: {e}")
@@ -827,7 +841,15 @@ Now analyze the user-provided OPG image."""
         from langchain_core.messages import HumanMessage
         
         # Include detection summary in the question for context
-        detection_summary = f"\n\n[Image path: {abs_image_path}]\n[Detection cache preloaded: ready for tool queries]"
+        detection_summary = (
+            f"\n\n[Image path: {abs_image_path}]\n"
+            f"[GOLD STANDARD PRELOADED DETECTION INFO]:\n"
+            f"- Total teeth detected: {teeth_fdi_count}\n"
+            f"- Detected teeth FDI: {', '.join(detected_fdi) if detected_fdi else 'none'}\n"
+            f"- Not detected teeth FDI (absent/missing/unerupted): {', '.join(not_detected_fdi)}\n"
+            f"- Quadrants: {quadrant_count}\n"
+            f"CRITICAL: You MUST report that total teeth detected is {teeth_fdi_count}."
+        )
         user_message = HumanMessage(
             content=question + detection_summary
         )
