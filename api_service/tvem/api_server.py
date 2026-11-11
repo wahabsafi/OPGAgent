@@ -119,9 +119,28 @@ def load_model(model_name: str, device: str = "cuda:0"):
         weights_path = str(TVEM_PATH / config["weights"])
         category_path = str(TVEM_PATH / config["categories"])
         
+        # 候选权重文件路径
+        candidate_weights = []
+        if os.environ.get("TVEM_WEIGHTS_DIR"):
+            candidate_weights.append(Path(os.environ["TVEM_WEIGHTS_DIR"]) / f"{model_name}.pth")
+            candidate_weights.append(Path(os.environ["TVEM_WEIGHTS_DIR"]) / "weights" / f"{model_name}.pth")
+        
+        raw_weights = Path(config["weights"])
+        candidate_weights.append(raw_weights if raw_weights.is_absolute() else TVEM_PATH / raw_weights)
+        candidate_weights.append(Path.home() / "tvem" / f"{model_name}.pth")
+        candidate_weights.append(Path.home() / "tvem" / "weights" / f"{model_name}.pth")
+        candidate_weights.append(TVEM_PATH / "weights" / f"{model_name}.pth")
+        candidate_weights.append(TVEM_PATH.parent.parent / "weights" / "tvem" / f"{model_name}.pth")
+
+        weights_path = None
+        for cw in candidate_weights:
+            if cw.exists() and cw.is_file():
+                weights_path = str(cw)
+                break
+
         # 检查文件
-        if not os.path.exists(weights_path):
-            print(f"❌ 权重文件不存在: {weights_path}")
+        if not weights_path:
+            print(f"❌ 权重文件不存在: {config['weights']} (尝试过: {[str(c) for c in candidate_weights]})")
             return False
         
         # 设置配置

@@ -81,7 +81,7 @@ sleep 2
 
 # 2. Start TVEM (MaskDINO)
 echo -e "${YELLOW}=== [2/5] Starting TVEM MaskDINO ===${NC}"
-start_service "tvem" "tvem" 6602 0 "DEVICE=cuda:0"
+start_service "tvem" "tvem" 6602 0 "DEVICE=cuda:0" "TVEM_WEIGHTS_DIR=${TVEM_WEIGHTS_DIR:-$HOME/tvem}"
 sleep 2
 
 # 3. Start MedSAM
