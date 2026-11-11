@@ -121,21 +121,24 @@ class TokenUsageTracker(BaseCallbackHandler):
 
 
 class StreamingConsoleCallbackHandler(BaseCallbackHandler):
-    """Real-time console logger for ReAct agent steps"""
+    """Real-time console logger for ReAct agent steps and live token streaming"""
     def on_llm_start(self, serialized, prompts, **kwargs):
-        print("🧠 [ReAct Brain] Gemini is reasoning...", flush=True)
+        print("\n🧠 [ReAct Brain] Gemini is reasoning...", flush=True)
+
+    def on_llm_new_token(self, token: str, **kwargs):
+        print(token, end="", flush=True)
 
     def on_tool_start(self, serialized, input_str, **kwargs):
         tool_name = serialized.get("name", "tool") if isinstance(serialized, dict) else str(serialized)
         inp_str = str(input_str)
-        if len(inp_str) > 80:
-            inp_str = inp_str[:80] + "..."
-        print(f"🔧 [ReAct Step] Calling tool `{tool_name}`: {inp_str}", flush=True)
+        if len(inp_str) > 100:
+            inp_str = inp_str[:100] + "..."
+        print(f"\n🔧 [ReAct Step] Invoking `{tool_name}`: {inp_str}", flush=True)
 
     def on_tool_end(self, output, **kwargs):
         out_str = str(output)
-        if len(out_str) > 100:
-            out_str = out_str[:100] + "..."
+        if len(out_str) > 120:
+            out_str = out_str[:120] + "..."
         print(f"   ↳ Tool Result: {out_str}", flush=True)
 
 
@@ -817,14 +820,32 @@ Now analyze the user-provided OPG image."""
                         # 设置 recursion_limit 以支持足够的工具调用迭代
                         react_config = self.config.get("react", {})
                         max_iterations = react_config.get("max_iterations", 15)
-                        result = self.agent.invoke(
+                        prev_msg_count = len(messages)
+                        result = None
+                        for state in self.agent.stream(
                             {"messages": messages},
                             config={
                                 **run_config,
                                 "callbacks": [self.token_tracker, StreamingConsoleCallbackHandler()],
                                 "recursion_limit": max_iterations * 2 + 5  # 每次迭代可能有 2 步（AI + Tool）
-                            }
-                        )
+                            },
+                            stream_mode="values"
+                        ):
+                            result = state
+                            cur_msgs = state.get("messages", [])
+                            if len(cur_msgs) > prev_msg_count:
+                                for new_msg in cur_msgs[prev_msg_count:]:
+                                    if hasattr(new_msg, "tool_calls") and new_msg.tool_calls:
+                                        for tc in new_msg.tool_calls:
+                                            tc_args = str(tc.get("args", {}))
+                                            if len(tc_args) > 100:
+                                                tc_args = tc_args[:100] + "..."
+                                            print(f"\n🧠 [ReAct Brain Decided]: Call `{tc['name']}`({tc_args})", flush=True)
+                                    elif hasattr(new_msg, "content") and new_msg.content:
+                                        msg_str = _message_content_to_str(new_msg.content).strip()
+                                        if msg_str and getattr(new_msg, "type", "") != "tool":
+                                            print(f"\n💭 [ReAct Thought]:\n{msg_str}\n", flush=True)
+                                prev_msg_count = len(cur_msgs)
                         break
                     except Exception as e:
                         last_error = e
