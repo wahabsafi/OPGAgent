@@ -56,14 +56,21 @@ start_service() {
 # Check if GGUF llama-server should be started
 GGUF_DIR="$PROJECT_ROOT/weights/dental_gpt_gguf"
 if [ -d "$GGUF_DIR" ] || [ "$USE_LLAMA_SERVER" = "1" ] || [ -n "$LLAMA_SERVER_URL" ]; then
-    echo -e "${YELLOW}=== Starting llama-server for GGUF model ===${NC}"
-    if [ -z "$LLAMA_SERVER_URL" ]; then
+    echo -e "${YELLOW}=== Checking / Starting llama-server for GGUF model ===${NC}"
+    export LLAMA_SERVER_URL="${LLAMA_SERVER_URL:-http://127.0.0.1:8090}"
+    if ! curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
+        echo "Launching llama-server on port 8090..."
         bash "$SCRIPT_DIR/start_llama_server.sh"
-        export LLAMA_SERVER_URL="http://127.0.0.1:8090"
-        echo "Waiting 3 seconds for llama-server to initialize..."
-        sleep 3
+        echo "Waiting for llama-server to load model and report healthy..."
+        for i in {1..20}; do
+            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 "$LLAMA_SERVER_URL/health" 2>/dev/null | grep -q "200"; then
+                echo -e "${GREEN}✓ llama-server is ready!${NC}"
+                break
+            fi
+            sleep 1
+        done
     else
-        echo "Using existing LLAMA_SERVER_URL: $LLAMA_SERVER_URL"
+        echo -e "${GREEN}✓ llama-server is already running and healthy at $LLAMA_SERVER_URL${NC}"
     fi
 fi
 
