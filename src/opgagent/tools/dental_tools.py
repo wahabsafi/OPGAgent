@@ -346,6 +346,13 @@ class DentalToolkit:
         self._round_robin_counters: Dict[str, int] = {}
         logger.info("✓ DentalToolkit 初始化")
 
+    def _get_conf(self, default: float = 0.25) -> float:
+        """从环境变量读取全局检测置信度阈值（默认 0.25，比原版硬编码 0.5 更灵敏）"""
+        try:
+            return float(os.environ.get("DETECTION_CONFIDENCE", str(default)))
+        except Exception:
+            return default
+
     def _call_remote_service(
         self,
         service_name: str,
@@ -493,7 +500,7 @@ class DentalToolkit:
         cached = self._cache_get(image_path, "quadrants", config)
         if isinstance(cached, dict):
             return cached
-        data = json.loads(self.quadrant_detection(image_path, confidence_threshold=0.5, config=config))
+        data = json.loads(self.quadrant_detection(image_path, confidence_threshold=self._get_conf(0.35), config=config))
         return self._cache_set(image_path, "quadrants", data, config)
 
     def _ensure_teeth(self, image_path: str, detections_json: Optional[str], config: RunnableConfig = None) -> Dict[str, Any]:
@@ -535,7 +542,7 @@ class DentalToolkit:
         cached = self._cache_get(image_path, "tvem_disease", config)
         if isinstance(cached, dict):
             return cached
-        data = json.loads(self.disease_detection_tvem(image_path, confidence=0.5, return_vis=False, config=config))
+        data = json.loads(self.disease_detection_tvem(image_path, confidence=self._get_conf(0.25), return_vis=False, config=config))
         return self._cache_set(image_path, "tvem_disease", data, config)
 
     def _ensure_tvem_matched(self, image_path: str, detections_json: Optional[str], config: RunnableConfig = None) -> Dict[str, Any]:
@@ -565,7 +572,7 @@ class DentalToolkit:
         cached = self._cache_get(image_path, "anatomy", config)
         if isinstance(cached, dict):
             return cached
-        data = json.loads(self.anatomy_detection(image_path, confidence=0.5, return_vis=False, config=config))
+        data = json.loads(self.anatomy_detection(image_path, confidence=self._get_conf(0.25), return_vis=False, config=config))
         return self._cache_set(image_path, "anatomy", data, config)
 
     def _ensure_bone_loss(self, image_path: str, detections_json: Optional[str], config: RunnableConfig = None) -> Dict[str, Any]:
@@ -576,7 +583,7 @@ class DentalToolkit:
         cached = self._cache_get(image_path, "bone_loss", config)
         if isinstance(cached, dict):
             return cached
-        data = json.loads(self.bone_loss_detection(image_path, confidence=0.5, return_vis=False, config=config))
+        data = json.loads(self.bone_loss_detection(image_path, confidence=self._get_conf(0.25), return_vis=False, config=config))
         return self._cache_set(image_path, "bone_loss", data, config)
 
     def _parse_detections_json(self, detections_json: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -680,45 +687,47 @@ class DentalToolkit:
         cached = self._cache_get(image_path, "bone_loss", config)
         if isinstance(cached, dict):
             return cached
-        data = json.loads(self.bone_loss_detection(image_path, confidence=0.5, return_vis=False, config=config))
+        data = json.loads(self.bone_loss_detection(image_path, confidence=self._get_conf(0.25), return_vis=False, config=config))
         return self._cache_set(image_path, "bone_loss", data, config)
 
-    def quadrant_detection(self, image_path: str, confidence_threshold: float = 0.5, config: RunnableConfig = None) -> str:
+    def quadrant_detection(self, image_path: str, confidence_threshold: Optional[float] = None, config: RunnableConfig = None) -> str:
         """检测 OPG 图像中的 4 个象限（Q1-Q4）"""
         image_path = self._resolve_image_path(image_path, config)
-        # Agent_refactor TVEMClient 期望参数名为 confidence（不是 confidence_threshold）
+        conf = confidence_threshold if confidence_threshold is not None else self._get_conf(0.35)
         result = self._call_remote_service(
             "tvem",
             "/detect/4quadrants",
-            {"image_path": image_path, "confidence": confidence_threshold, "return_vis": False}
+            {"image_path": image_path, "confidence": conf, "return_vis": False}
         )
         return json.dumps(result, ensure_ascii=False)
     
-    def tooth_enumeration(self, image_path: str, config: RunnableConfig = None) -> str:
+    def tooth_enumeration(self, image_path: str, conf_threshold: Optional[float] = None, config: RunnableConfig = None) -> str:
         """检测 OPG 图像中每颗牙齿的位置和编号（1-8）"""
         image_path = self._resolve_image_path(image_path, config)
+        conf = conf_threshold if conf_threshold is not None else self._get_conf(0.20)
         result = self._call_remote_service(
             "yolo_enumeration",
             "/detect",
-            {"image_path": image_path}
+            {"image_path": image_path, "conf_threshold": conf}
         )
         return json.dumps(result, ensure_ascii=False)
     
     def disease_detection_tvem(
         self,
         image_path: str,
-        confidence: float = 0.5,
+        confidence: Optional[float] = None,
         return_vis: bool = False,
         config: RunnableConfig = None,
     ) -> str:
         """使用 TVEM 检测 11 类牙科疾病"""
         image_path = self._resolve_image_path(image_path, config)
+        conf = confidence if confidence is not None else self._get_conf(0.25)
         result = self._call_remote_service(
             "tvem",
             "/detect/11diseases",
             {
                 "image_path": image_path,
-                "confidence": confidence,
+                "confidence": conf,
                 "return_vis": return_vis
             }
         )
@@ -749,18 +758,19 @@ class DentalToolkit:
     def bone_loss_detection(
         self,
         image_path: str,
-        confidence: float = 0.5,
+        confidence: Optional[float] = None,
         return_vis: bool = False,
         config: RunnableConfig = None,
     ) -> str:
         """检测牙周病引起的骨吸收区域"""
         image_path = self._resolve_image_path(image_path, config)
+        conf = confidence if confidence is not None else self._get_conf(0.25)
         result = self._call_remote_service(
             "tvem",
             "/detect/bone_loss",
             {
                 "image_path": image_path,
-                "confidence": confidence,
+                "confidence": conf,
                 "return_vis": return_vis
             }
         )
@@ -769,18 +779,19 @@ class DentalToolkit:
     def anatomy_detection(
         self,
         image_path: str,
-        confidence: float = 0.5,
+        confidence: Optional[float] = None,
         return_vis: bool = False,
         config: RunnableConfig = None,
     ) -> str:
         """检测重要的解剖结构（下颌管、上颌窦）"""
         image_path = self._resolve_image_path(image_path, config)
+        conf = confidence if confidence is not None else self._get_conf(0.25)
         result = self._call_remote_service(
             "tvem",
             "/detect/mandibular_maxillary",
             {
                 "image_path": image_path,
-                "confidence": confidence,
+                "confidence": conf,
                 "return_vis": return_vis
             }
         )
@@ -1421,21 +1432,22 @@ IMPORTANT INSTRUCTIONS:
 
         # 阶段 3：并行执行 tvem_disease、bone_loss、anatomy（TVEM 为唯一疾病检测器）
         tasks = []
+        conf_val = self._get_conf(0.25)
         def run_tvem():
             try:
-                return "tvem_disease", json.loads(self.disease_detection_tvem(image_path, confidence=0.5, return_vis=False, config=config))
+                return "tvem_disease", json.loads(self.disease_detection_tvem(image_path, confidence=conf_val, return_vis=False, config=config))
             except Exception as e:
                 return "tvem_disease", {"error": str(e)}
         tasks.append(("tvem_disease", run_tvem))
         def run_bone_loss():
             try:
-                return "bone_loss", json.loads(self.bone_loss_detection(image_path, confidence=0.5, return_vis=False, config=config))
+                return "bone_loss", json.loads(self.bone_loss_detection(image_path, confidence=conf_val, return_vis=False, config=config))
             except Exception as e:
                 return "bone_loss", {"error": str(e)}
         tasks.append(("bone_loss", run_bone_loss))
         def run_anatomy():
             try:
-                return "anatomy", json.loads(self.anatomy_detection(image_path, confidence=0.5, return_vis=False, config=config))
+                return "anatomy", json.loads(self.anatomy_detection(image_path, confidence=conf_val, return_vis=False, config=config))
             except Exception as e:
                 return "anatomy", {"error": str(e)}
         tasks.append(("anatomy", run_anatomy))

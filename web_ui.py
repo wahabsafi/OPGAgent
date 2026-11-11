@@ -195,6 +195,7 @@ def analyze_opg(
     model_name_input,
     base_url_input,
     enable_cloud_vlm,
+    detection_conf=0.25,
     progress=gr.Progress(track_tqdm=True)
 ):
     if image is None:
@@ -204,6 +205,9 @@ def analyze_opg(
     model = model_name_input.strip() if model_name_input and model_name_input.strip() else default_model
     api_key = api_key_input.strip() if api_key_input and api_key_input.strip() else None
     base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
+
+    # Set vision sensitivity threshold (default 0.25, previously hardcoded to 0.50)
+    os.environ["DETECTION_CONFIDENCE"] = str(detection_conf)
 
     # Control whether cloud VLMs (OpenAI & Gemini) are permitted
     os.environ["ENABLE_CLOUD_VLM"] = "true" if enable_cloud_vlm else "false"
@@ -349,7 +353,7 @@ def _draw_contours_pil(image: Image.Image, contours: list, color: str = "#00ffff
 def inspect_single_model(
     image,
     model_choice,
-    confidence=0.25,
+    confidence=0.15,
     vlm_prompt="",
     medsam_count=10,
     progress=gr.Progress(track_tqdm=True)
@@ -773,6 +777,14 @@ with gr.Blocks(title="OPGAgent: Dental AI Diagnostic & Model Suite", theme=gr.th
                             value=False,
                             info="Unchecked = 100% Offline Local Mode (A100 GPU only, no external calls). Checked = also query OpenAI and Gemini VLMs."
                         )
+                        detection_conf_slider = gr.Slider(
+                            minimum=0.05,
+                            maximum=0.80,
+                            value=0.25,
+                            step=0.05,
+                            label="🎯 Vision Detection Sensitivity (Confidence Threshold)",
+                            info="Default: 0.25 (Original was hardcoded to 0.50, which discarded subtle cavities). Lower to 0.15-0.25 to detect faint caries and early bone loss."
+                        )
                         with gr.Row():
                             test_conn_btn = gr.Button("🧪 Test Connection", size="sm")
                         conn_status_box = gr.Markdown("")
@@ -802,7 +814,7 @@ with gr.Blocks(title="OPGAgent: Dental AI Diagnostic & Model Suite", theme=gr.th
 
             submit_btn.click(
                 fn=analyze_opg,
-                inputs=[image_input, question_input, engine_choice, api_key_input, model_name_input, base_url_input, enable_cloud_vlm_cb],
+                inputs=[image_input, question_input, engine_choice, api_key_input, model_name_input, base_url_input, enable_cloud_vlm_cb, detection_conf_slider],
                 outputs=[report_output, json_output, trace_output],
                 show_progress="full"
             )
@@ -838,10 +850,10 @@ with gr.Blocks(title="OPGAgent: Dental AI Diagnostic & Model Suite", theme=gr.th
                         inspector_conf_slider = gr.Slider(
                             minimum=0.05,
                             maximum=0.95,
-                            value=0.25,
+                            value=0.15,
                             step=0.05,
                             label="Detection Confidence Threshold (YOLO / TVEM)",
-                            info="Lower = detect more subtle findings; Higher = higher precision"
+                            info="Default: 0.15. Lower to 0.10-0.20 to reveal faint cavities, early bone loss, and subtle apical shadows."
                         )
                         inspector_vlm_prompt = gr.Textbox(
                             label="Custom Prompt (DentalGPT only)",
