@@ -7,11 +7,21 @@ Built with Gradio for auditable panoramic radiograph (OPG) interpretation.
 import os
 import sys
 import json
+import logging
 import tempfile
 import argparse
 import requests
+import traceback
 from pathlib import Path
 from PIL import Image
+
+# Configure logging so console shows all agent steps
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("OPGAgent-WebUI")
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -81,9 +91,15 @@ def get_service_status():
         lines.append(f"| {name} | {status} | `{url}` |")
     return "\n".join(lines)
 
-def analyze_opg(image, question):
+def analyze_opg(image, question, progress=gr.Progress(track_tqdm=True)):
     if image is None:
         return "⚠️ **Please upload a panoramic radiograph (OPG) image first.**", {}, "No image provided."
+
+    print("\n" + "="*50)
+    print("📥 [Web UI] New Analysis Request Received!")
+    print(f"❓ Question: {question}")
+    print(f"🖼️ Image size: {image.size}")
+    print("="*50)
 
     if not question or not question.strip():
         question = "Analyze this OPG and give a concise diagnostic summary."
@@ -93,15 +109,23 @@ def analyze_opg(image, question):
         tmp_path = tmp.name
 
     try:
+        progress(0.1, desc="Initializing OPGAgent & preloading CV detection cache...")
+        print("⚙️ Initializing agent...")
         agent = get_agent()
+
+        progress(0.3, desc="Running visual models & ReAct reasoning loop (takes ~20-40s)...")
+        print("🚀 Executing agent.run()...")
         result = agent.run(question=question, image_path=tmp_path)
         answer = result.get("answer", "No diagnosis generated.")
+        print("✅ ReAct reasoning finished!")
 
+        progress(0.85, desc="Extracting structured FDI report...")
         structured_json = {}
         try:
             structured_raw = agent.toolkit.convert_to_structured(answer)
             structured_json = json.loads(structured_raw).get("structured_report", {})
         except Exception as e:
+            logger.warning(f"Structured extraction notice: {e}")
             structured_json = {"raw_report": answer, "note": f"Structured format extraction note: {e}"}
 
         # Summarize ReAct steps
@@ -119,9 +143,13 @@ def analyze_opg(image, question):
                 steps_log.append(f"**Tool Observation:**\n```text\n{obs_str}\n```\n")
 
         steps_text = "\n".join(steps_log) if steps_log else "Reasoning completed in a single pass."
+        progress(1.0, desc="Done!")
+        print("🎉 Analysis successfully completed and returned to UI!\n")
         return answer, structured_json, steps_text
 
     except Exception as e:
+        print(f"❌ Error during analysis: {e}")
+        traceback.print_exc()
         return f"❌ **Error during analysis:**\n\n```text\n{str(e)}\n```", {}, str(e)
     finally:
         if os.path.exists(tmp_path):
@@ -183,7 +211,8 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
     submit_btn.click(
         fn=analyze_opg,
         inputs=[image_input, question_input],
-        outputs=[report_output, json_output, trace_output]
+        outputs=[report_output, json_output, trace_output],
+        show_progress="full"
     )
 
 if __name__ == "__main__":
