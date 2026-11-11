@@ -8,6 +8,13 @@
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
 
+# Load .env if present
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a
+    source "$PROJECT_ROOT/.env"
+    set +a
+fi
+
 MODEL_PATH="${DENTAL_GPT_GGUF_MODEL:-$PROJECT_ROOT/weights/dental_gpt_gguf/DentalGPT-7B-1026.f16.gguf}"
 MMPROJ_PATH="${DENTAL_GPT_GGUF_MMPROJ:-$PROJECT_ROOT/weights/dental_gpt_gguf/DentalGPT-7B-1026.mmproj-f16.gguf}"
 LLAMA_SERVER_BIN="${LLAMA_SERVER_BIN:-$HOME/llama.cpp/build/bin/llama-server}"
@@ -30,6 +37,11 @@ else
     echo "Searched $HOME/llama.cpp and PATH. Please check installation."
     exit 1
 fi
+
+# Ensure CUDA backend libraries (.so) can be loaded by llama-server
+BIN_DIR="$(dirname "$LLAMA_SERVER_BIN")"
+export LD_LIBRARY_PATH="$BIN_DIR:/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+export CUDA_VISIBLE_DEVICES=0
 
 if [ ! -f "$MODEL_PATH" ]; then
     echo "Error: Model file not found at $MODEL_PATH"

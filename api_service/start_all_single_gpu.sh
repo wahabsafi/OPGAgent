@@ -19,6 +19,13 @@ mkdir -p "$LOG_DIR"
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a
+    source "$PROJECT_ROOT/.env"
+    set +a
+fi
+
 echo -e "${CYAN}====================================================${NC}"
 echo -e "${CYAN}  OPGAgent API Services (Single GPU Mode - GPU 0)${NC}"
 echo -e "${CYAN}====================================================${NC}"
@@ -47,7 +54,6 @@ start_service() {
 }
 
 # Check if GGUF llama-server should be started
-PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
 GGUF_DIR="$PROJECT_ROOT/weights/dental_gpt_gguf"
 if [ -d "$GGUF_DIR" ] || [ "$USE_LLAMA_SERVER" = "1" ] || [ -n "$LLAMA_SERVER_URL" ]; then
     echo -e "${YELLOW}=== Starting llama-server for GGUF model ===${NC}"
