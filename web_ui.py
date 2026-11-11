@@ -67,8 +67,8 @@ from opgagent.agent import OPGReActAgent
 
 AGENTS = {}
 
-def get_agent(provider="openai", model=None, api_key=None, base_url=None):
-    cache_key = (provider, model, api_key, base_url)
+def get_agent(provider="openai", model=None, api_key=None, base_url=None, enable_cloud_vlm=True):
+    cache_key = (provider, model, api_key, base_url, enable_cloud_vlm)
     if cache_key not in AGENTS:
         config_path = PROJECT_ROOT / "src" / "opgagent" / "config" / "agent_config.yaml"
         AGENTS[cache_key] = OPGReActAgent(
@@ -78,6 +78,7 @@ def get_agent(provider="openai", model=None, api_key=None, base_url=None):
             llm_model=model,
             api_key=api_key,
             base_url=base_url,
+            enable_cloud_vlm=enable_cloud_vlm,
         )
     return AGENTS[cache_key]
 
@@ -191,6 +192,7 @@ def analyze_opg(
     api_key_input,
     model_name_input,
     base_url_input,
+    enable_cloud_vlm,
     progress=gr.Progress(track_tqdm=True)
 ):
     if image is None:
@@ -200,6 +202,9 @@ def analyze_opg(
     model = model_name_input.strip() if model_name_input and model_name_input.strip() else default_model
     api_key = api_key_input.strip() if api_key_input and api_key_input.strip() else None
     base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
+
+    # Control whether cloud VLMs (OpenAI & Gemini) are permitted
+    os.environ["ENABLE_CLOUD_VLM"] = "true" if enable_cloud_vlm else "false"
 
     # Handle local Qwen brain on port 8091
     if provider == "qwen_local":
@@ -227,6 +232,7 @@ def analyze_opg(
     print("\n" + "="*50)
     print("📥 [Web UI] New Analysis Request Received!")
     print(f"🧠 Engine: {engine_choice} | Model: {model} | Provider: {provider}")
+    print(f"🌐 Cloud VLMs (OpenAI & Gemini): {'ENABLED' if enable_cloud_vlm else 'DISABLED (100% Offline Local Mode)'}")
     print(f"❓ Question: {question}")
     print(f"🖼️ Image size: {image.size}")
     print("="*50)
@@ -239,9 +245,10 @@ def analyze_opg(
         tmp_path = tmp.name
 
     try:
-        progress(0.1, desc=f"Initializing OPGAgent ({model}) & preloading CV detection cache...")
-        print(f"⚙️ Initializing agent ({provider} / {model})...")
-        agent = get_agent(provider=provider, model=model, api_key=api_key, base_url=base_url)
+        mode_label = "Local Offline" if not enable_cloud_vlm else "Cloud-Ensemble"
+        progress(0.1, desc=f"Initializing OPGAgent ({model}, {mode_label}) & preloading CV detection cache...")
+        print(f"⚙️ Initializing agent ({provider} / {model}, cloud_vlm={enable_cloud_vlm})...")
+        agent = get_agent(provider=provider, model=model, api_key=api_key, base_url=base_url, enable_cloud_vlm=enable_cloud_vlm)
 
         progress(0.3, desc=f"Running visual models & ReAct reasoning loop with {model}...")
         print("🚀 Executing agent.run()...")
@@ -346,7 +353,12 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
                     )
                 base_url_input = gr.Textbox(
                     label="Custom Base URL (Optional)",
-                    placeholder="e.g. http://127.0.0.1:8090/v1 (only for Local GPU or custom endpoint)",
+                    placeholder="e.g. http://127.0.0.1:8090/v1 (only for custom endpoint)",
+                )
+                enable_cloud_vlm_cb = gr.Checkbox(
+                    label="🌐 Enable Cloud VLMs (OpenAI & Gemini calls)",
+                    value=False,
+                    info="Unchecked = 100% Offline Local Mode (A100 GPU only, no external calls). Checked = also query OpenAI and Gemini VLMs."
                 )
                 with gr.Row():
                     test_conn_btn = gr.Button("🧪 Test Connection", size="sm")
@@ -377,7 +389,7 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
 
     submit_btn.click(
         fn=analyze_opg,
-        inputs=[image_input, question_input, engine_choice, api_key_input, model_name_input, base_url_input],
+        inputs=[image_input, question_input, engine_choice, api_key_input, model_name_input, base_url_input, enable_cloud_vlm_cb],
         outputs=[report_output, json_output, trace_output],
         show_progress="full"
     )

@@ -281,6 +281,7 @@ class OPGReActAgent:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         temperature: Optional[float] = None,
+        enable_cloud_vlm: bool = True,
     ):
         """
         初始化 Agent
@@ -295,9 +296,12 @@ class OPGReActAgent:
             api_key: 动态传入的 API 密钥（优先于环境变量）
             base_url: 动态传入的 Base URL（用于本地 llama-server 或自定义端点）
             temperature: 温度参数
+            enable_cloud_vlm: 是否启用云端 VLM (OpenAI / Gemini)。若为 False，纯本地运行，不发起任何外网调用。
         """
         # 记录使用的工具服务配置
         self.tool_service = tool_service
+        self.enable_cloud_vlm = enable_cloud_vlm
+        os.environ["ENABLE_CLOUD_VLM"] = "true" if enable_cloud_vlm else "false"
 
         # 加载配置
         if config_path and Path(config_path).exists():
@@ -406,6 +410,7 @@ class OPGReActAgent:
             self.tools_config,
             analysis_only=False,
             return_toolkit=True,
+            enable_cloud_vlm=self.enable_cloud_vlm,
         )
 
         # 构建 system prompt
@@ -414,10 +419,19 @@ class OPGReActAgent:
         # 创建 agent
         self.agent = self._create_agent()
 
-        logger.info(f"✓ OPGReActAgent 初始化完成 (模型: {self.model_name}, 提供商: {self.provider}, 工具服务: {self.tool_service}, VLM: 4 VLM, 工具数: {len(self.tools)})")
+        vlm_desc = "4 VLM (含云端)" if self.enable_cloud_vlm else "2 VLM (纯本地)"
+        logger.info(f"✓ OPGReActAgent 初始化完成 (模型: {self.model_name}, 提供商: {self.provider}, 工具服务: {self.tool_service}, VLM: {vlm_desc}, 工具数: {len(self.tools)})")
     
     def _get_consensus_block(self) -> str:
-        """5 源 3/5 投票：4 VLMs (DentalGPT, OralGPT, GPT-5.2, Gemini) + 1 Tool。"""
+        """多源共识规则：云端模式下 5 源 3/5 投票；纯本地模式下 3 源 (DentalGPT, OralGPT, Tool)。"""
+        if not getattr(self, "enable_cloud_vlm", True):
+            return r"""### Consensus Rule (Local Mode: 3 Sources)
+**3 sources total**: 2 Local VLMs (DentalGPT, OralGPT) + 1 Tool (detection)
+
+- **Confirmed (≥2/3)**: If at least 2 sources report the finding → **CONFIRMED**
+- **High Confidence**: If detection tool confirms it or both DentalGPT & OralGPT agree.
+- **Reject**: Single low-confidence mention with no detection support → OMIT"""
+
         return r"""### Consensus Rule (Majority Vote: ≥3 out of 5 sources)
 **5 sources total**: 4 VLMs (DentalGPT, OralGPT, GPT-5.2, Gemini) + 1 Tool (detection)
 
@@ -436,6 +450,17 @@ class OPGReActAgent:
 
     def _get_consensus_placeholders(self) -> dict:
         """返回 prompt 中与共识相关的占位符（用于后续段落）。"""
+        if not getattr(self, "enable_cloud_vlm", True):
+            return {
+                "CONFIRMED_THRESHOLD": "≥2/3",
+                "SOURCES_DESC": "Tool + 2 Local VLMs (DentalGPT, OralGPT)",
+                "VLM_PHASE_DESC": "DentalGPT, OralGPT",
+                "SUMMARY_THRESHOLD": "≥2/3 = CONFIRMED, 1/3 = REPORT WITH CAUTION",
+                "CONFIRMED_LABEL": "≥2 sources agree",
+                "HIGH_CONF_LABEL": "supported by local detection tool",
+                "FINDINGS_HEADER": "(Confirmed by Local Tools & VLMs)",
+                "RESOLVE_WHEN": "≥2 sources",
+            }
         return {
             "CONFIRMED_THRESHOLD": "≥3/5",
             "SOURCES_DESC": "Tool + 4 VLMs",

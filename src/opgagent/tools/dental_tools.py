@@ -1991,16 +1991,43 @@ Return ONLY valid JSON, no explanations. Example structure:
 Now convert the report to structured JSON:"""
 
         try:
-            # 优先使用有效配置的 LLM 进行转换
-            has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
-            has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
-            if not has_valid_openai and has_gemini:
-                result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
-            else:
-                result = self._call_llm_zoo_openai("", conversion_prompt, analysis_level="overall")
-                if result.get("status") == "error" and has_gemini:
-                    logger.info("OpenAI 报告转换失败（如 429 配额不足），回退至 Gemini 执行结构化转换")
+            # 优先使用配置检查是否允许云端调用
+            allow_cloud = os.environ.get("ENABLE_CLOUD_VLM", "true").lower() in ("true", "1", "yes")
+            result = None
+
+            # 如果离线/本地模式，优先使用本地 Qwen Brain 或本地 llama-server
+            if not allow_cloud or not (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+                local_url = os.environ.get("LOCAL_BRAIN_URL") or "http://127.0.0.1:8091"
+                try:
+                    payload = {
+                        "model": "qwen2.5-7b-instruct",
+                        "messages": [{"role": "user", "content": conversion_prompt}],
+                        "temperature": 0.1,
+                        "max_tokens": 2048,
+                    }
+                    res = requests.post(
+                        f"{local_url}/v1/chat/completions",
+                        json=payload,
+                        timeout=30,
+                        proxies={"http": None, "https": None}
+                    )
+                    if res.status_code == 200:
+                        ans = res.json()["choices"][0]["message"]["content"]
+                        result = {"response": ans, "status": "success"}
+                except Exception as ex:
+                    logger.warning(f"本地 Qwen 结构化转换失败，尝试回退: {ex}")
+
+            if not result:
+                has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
+                has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+                if not has_valid_openai and has_gemini:
                     result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
+                else:
+                    result = self._call_llm_zoo_openai("", conversion_prompt, analysis_level="overall")
+                    if result.get("status") == "error" and has_gemini:
+                        logger.info("OpenAI 报告转换失败（如 429 配额不足），回退至 Gemini 执行结构化转换")
+                        result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
+
             if result.get("status") == "error":
                 return json.dumps({"error": result.get("error", "conversion failed"), "status": "error"}, ensure_ascii=False)
             
@@ -2176,12 +2203,30 @@ Analyze and provide the most appropriate classification:"""
         
         # 调用 subagent 进行消歧
         try:
-            has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
-            has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
-            if not has_valid_openai and has_gemini:
-                result = self._call_llm_zoo_google("", task_description, analysis_level="quadrant")
-            else:
-                result = self._call_llm_zoo_openai("", task_description, analysis_level="quadrant")
+            allow_cloud = os.environ.get("ENABLE_CLOUD_VLM", "true").lower() in ("true", "1", "yes")
+            result = None
+            if not allow_cloud or not (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+                local_url = os.environ.get("LOCAL_BRAIN_URL") or "http://127.0.0.1:8091"
+                try:
+                    res = requests.post(
+                        f"{local_url}/v1/chat/completions",
+                        json={"model": "qwen2.5-7b-instruct", "messages": [{"role": "user", "content": task_description}], "temperature": 0.2, "max_tokens": 1024},
+                        timeout=30,
+                        proxies={"http": None, "https": None}
+                    )
+                    if res.status_code == 200:
+                        ans = res.json()["choices"][0]["message"]["content"]
+                        result = {"response": ans, "status": "success"}
+                except Exception as ex:
+                    logger.warning(f"本地 Qwen 分歧消歧失败，尝试回退: {ex}")
+
+            if not result:
+                has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
+                has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+                if not has_valid_openai and has_gemini:
+                    result = self._call_llm_zoo_google("", task_description, analysis_level="quadrant")
+                else:
+                    result = self._call_llm_zoo_openai("", task_description, analysis_level="quadrant")
             
             if result.get("status") == "error":
                 return json.dumps({
@@ -2262,6 +2307,7 @@ def create_dental_tools(
     tools_config: Dict[str, Any],
     analysis_only: bool = False,
     return_toolkit: bool = False,
+    enable_cloud_vlm: bool = True,
 ) -> Union[List[StructuredTool], Tuple[List[StructuredTool], "DentalToolkit"]]:
     """
     Create LangChain tool list and optionally return the toolkit instance.
@@ -2270,6 +2316,7 @@ def create_dental_tools(
         tools_config: Tool configuration dict
         analysis_only: If True, only create VLM analysis tools (default False)
         return_toolkit: If True, return (tools, toolkit) tuple for preloading cache
+        enable_cloud_vlm: If True, include cloud VLMs (OpenAI & Gemini); if False, use local VLMs only.
 
     Returns:
         LangChain Tool list, or (tools, toolkit) tuple if return_toolkit=True
@@ -2445,7 +2492,8 @@ Use when: cross-validate DentalGPT or get second opinion on the whole OPG.
             args_schema=DentalExpertAnalysisInput,
         ),
     ]
-    vlm_tools.extend([
+    if enable_cloud_vlm:
+        vlm_tools.extend([
             StructuredTool.from_function(
                 func=toolkit.llm_zoo_openai,
                 name="llm_zoo_openai",
@@ -2497,7 +2545,10 @@ Use when: you need Gemini analysis or verification; pair with llm_zoo_openai for
         ),
     )
     tools.extend(vlm_tools)
-    logger.info("✓ 已添加 VLM 工具 (DentalGPT, OralGPT, GPT-5.2, Gemini, resolve_finding_disagreement)")
+    if enable_cloud_vlm:
+        logger.info("✓ 已添加 VLM 工具 (DentalGPT, OralGPT, GPT-5.2, Gemini, resolve_finding_disagreement)")
+    else:
+        logger.info("✓ 已添加纯本地 VLM 工具 (DentalGPT, OralGPT, resolve_finding_disagreement) - 云端 VLM 已禁用")
     
     logger.info(f"✓ Created {len(tools)} LangChain tools (analysis_only={analysis_only})")
     if return_toolkit:
