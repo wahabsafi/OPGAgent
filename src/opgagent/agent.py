@@ -872,6 +872,7 @@ Now analyze the user-provided OPG image."""
         from langchain_core.messages import HumanMessage
         
         # Include detection summary in the question for context
+        conf_setting = os.environ.get("DETECTION_CONFIDENCE", "0.25")
         detection_summary = (
             f"\n\n[Image path: {abs_image_path}]\n"
             f"[GOLD STANDARD PRELOADED DETECTION INFO]:\n"
@@ -879,6 +880,7 @@ Now analyze the user-provided OPG image."""
             f"- Detected teeth FDI: {', '.join(detected_fdi) if detected_fdi else 'none'}\n"
             f"- Not detected teeth FDI (absent/missing/unerupted): {', '.join(not_detected_fdi)}\n"
             f"- Quadrants: {quadrant_count}\n"
+            f"- Vision tool sensitivity threshold: {conf_setting}\n"
             f"CRITICAL: You MUST report that total teeth detected is {teeth_fdi_count}."
         )
         user_message = HumanMessage(
