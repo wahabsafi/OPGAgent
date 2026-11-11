@@ -10,6 +10,7 @@ PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
 
 PORT="${BRAIN_PORT:-8091}"
 HOST="${BRAIN_HOST:-127.0.0.1}"
+CTX_SIZE="${BRAIN_CTX:-24576}"
 
 # Look for Qwen GGUF model (case-insensitive search)
 MODEL_PATH=$(find "$PROJECT_ROOT/weights/brain_gguf" -iname "*qwen2.5-7b-instruct*.gguf" 2>/dev/null | head -n 1)
@@ -39,21 +40,23 @@ export NO_PROXY="localhost,127.0.0.1,0.0.0.0,::1"
 
 mkdir -p "$SCRIPT_DIR/logs"
 
-# Check if already running on port 8091
-if curl -s --noproxy "*" "http://$HOST:$PORT/health" | grep -q "ok"; then
-    echo "✓ Brain server is already running and healthy on http://$HOST:$PORT"
-    exit 0
+# Terminate any previous instance running on this port to ensure new context size takes effect
+if pgrep -f "llama-server.*${PORT}" > /dev/null 2>&1; then
+    echo "Restarting llama-server on port $PORT..."
+    pkill -f "llama-server.*${PORT}" 2>/dev/null || true
+    sleep 2
 fi
 
 echo "========================================="
 echo " Starting Brain LLM (Qwen2.5-7B-Instruct)"
-echo " Model: $MODEL_PATH"
-echo " Port:  $PORT"
+echo " Model:   $MODEL_PATH"
+echo " Context: $CTX_SIZE tokens"
+echo " Port:    $PORT"
 echo "========================================="
 
 nohup "$LLAMA_SERVER_BIN" \
     -m "$MODEL_PATH" \
-    -c 8192 \
+    -c "$CTX_SIZE" \
     -ngl 99 \
     --host "$HOST" \
     --port "$PORT" > "$SCRIPT_DIR/logs/brain_server.log" 2>&1 &

@@ -214,9 +214,8 @@ def build_chat_model(
             temperature=temperature,
             http_client=http_client,
             timeout=180,
+            max_tokens=max_tokens,
         )
-        if max_tokens is not None:
-            kwargs["model_kwargs"] = {"max_tokens": max_tokens}
         return ChatOpenAI(**kwargs)
 
     if provider_norm == "qwen":
@@ -260,7 +259,7 @@ def build_chat_model(
         import httpx
         kwargs["http_client"] = httpx.Client(trust_env=False, timeout=180.0)
     if max_tokens is not None:
-        kwargs["model_kwargs"] = {"max_tokens": max_tokens}
+        kwargs["max_tokens"] = max_tokens
     return ChatOpenAI(**kwargs)
 
 
