@@ -14,6 +14,7 @@ import uvicorn
 from PIL import Image
 import io
 import base64
+import requests
 from typing import Optional
 import logging
 from datetime import datetime
