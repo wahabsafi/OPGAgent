@@ -54,7 +54,7 @@ async def health_check():
     if LLAMA_SERVER_URL:
         try:
             import requests
-            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3)
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3, proxies={"http": None, "https": None})
             is_healthy = r.status_code == 200
         except Exception:
             is_healthy = False
@@ -118,7 +118,7 @@ async def analyze(
                     "temperature": float(temperature),
                     "max_tokens": 4096
                 }
-                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120)
+                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120, proxies={"http": None, "https": None})
                 res.raise_for_status()
                 return res.json()["choices"][0]["message"]["content"]
 

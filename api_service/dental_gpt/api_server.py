@@ -59,7 +59,7 @@ def load_model():
     if LLAMA_SERVER_URL:
         logger.info(f"Using llama-server backend at {LLAMA_SERVER_URL}")
         try:
-            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=5)
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=5, proxies={"http": None, "https": None})
             logger.info(f"llama-server status: {r.status_code}")
         except Exception as e:
             logger.warning(f"Could not connect to llama-server at {LLAMA_SERVER_URL}: {e}")
@@ -116,7 +116,7 @@ async def health_check():
     """健康检查端点"""
     if LLAMA_SERVER_URL:
         try:
-            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3)
+            r = requests.get(f"{LLAMA_SERVER_URL}/health", timeout=3, proxies={"http": None, "https": None})
             is_healthy = r.status_code == 200
         except Exception:
             is_healthy = False
@@ -181,7 +181,7 @@ async def analyze_image(
                     "temperature": float(temperature),
                     "max_tokens": max_new_tokens
                 }
-                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120)
+                res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120, proxies={"http": None, "https": None})
                 res.raise_for_status()
                 return res.json()["choices"][0]["message"]["content"]
 

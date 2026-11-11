@@ -376,7 +376,8 @@ class DentalToolkit:
         url = f"{base_url}{endpoint}"
         
         try:
-            # 根据数据类型选择请求方式
+            # 根据数据类型选择请求方式（本地微服务绕过全局代理）
+            local_proxies = {"http": None, "https": None}
             if "image_path" in data:
                 image_path = data.pop("image_path")
                 # 优先使用 context 注入的真实路径（agent.run 设置），避免 LLM 传入错误路径
@@ -388,9 +389,9 @@ class DentalToolkit:
                 with open(image_path, "rb") as f:
                     files = {file_field: f}
                     form_data = {k: str(v) for k, v in data.items()}
-                    response = requests.post(url, files=files, data=form_data, timeout=timeout)
+                    response = requests.post(url, files=files, data=form_data, timeout=timeout, proxies=local_proxies)
             else:
-                response = requests.post(url, json=data, timeout=timeout)
+                response = requests.post(url, json=data, timeout=timeout, proxies=local_proxies)
             
             response.raise_for_status()
             return response.json()

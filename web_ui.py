@@ -50,6 +50,11 @@ def _load_dotenv():
     if (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")) and not os.environ.get("OPENAI_API_KEY"):
         os.environ["LLM_PROVIDER"] = "gemini"
 
+    # CRITICAL: Ensure local microservices bypass the proxy
+    no_proxy_vals = "localhost,127.0.0.1,0.0.0.0,::1"
+    os.environ["NO_PROXY"] = no_proxy_vals
+    os.environ["no_proxy"] = no_proxy_vals
+
 _load_dotenv()
 
 try:
@@ -84,10 +89,10 @@ def get_service_status():
     lines = ["| Service | Status | Endpoint |", "| :--- | :--- | :--- |"]
     for name, url in services.items():
         try:
-            r = requests.get(url, timeout=1.5)
+            r = requests.get(url, timeout=2.0, proxies={"http": None, "https": None})
             status = "🟢 Healthy (200)" if r.status_code == 200 else f"🔴 Error ({r.status_code})"
-        except Exception:
-            status = "⚪ Offline"
+        except Exception as e:
+            status = f"⚪ Offline ({type(e).__name__})"
         lines.append(f"| {name} | {status} | `{url}` |")
     return "\n".join(lines)
 
