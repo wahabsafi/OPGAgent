@@ -132,6 +132,18 @@ def load_model(model_name: str, device: str = "cuda:0"):
         candidate_weights.append(TVEM_PATH / "weights" / f"{model_name}.pth")
         candidate_weights.append(TVEM_PATH.parent.parent / "weights" / "tvem" / f"{model_name}.pth")
 
+        # 支持 Hugging Face 原始长文件名
+        long_names = {
+            "4quadrants": "Teeth_Visual_Experts_Maskdino_Swinl_panoramic_x-ray_4quadrants.pth",
+            "11diseases": "Teeth_Visual_Experts_Maskdino_Swinl_x-ray_11diseases.pth",
+            "mandibular_maxillary": "Teeth_Visual_Experts_Maskdino_Swinl_panoramic_x-ray_Mandibular_Canal_Maxillary_Sinus.pth",
+            "bone_loss": "Teeth_Visual_Experts_Maskdino_Swinl_x-ray_bone_loss_1disease.pth",
+        }
+        if model_name in long_names:
+            candidate_weights.append(TVEM_PATH.parent.parent / "weights" / "tvem" / long_names[model_name])
+            candidate_weights.append(Path.home() / "OPGAgent" / "weights" / "tvem" / long_names[model_name])
+            candidate_weights.append(TVEM_PATH / "weights" / long_names[model_name])
+
         weights_path = None
         for cw in candidate_weights:
             if cw.exists() and cw.is_file():
