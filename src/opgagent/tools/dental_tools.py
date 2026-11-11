@@ -1137,8 +1137,15 @@ IMPORTANT INSTRUCTIONS:
         else:
             content = [{"type": "text", "text": prompt}]
         try:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key or api_key.startswith("sk-..."):
+                if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+                    logger.info("OPENAI_API_KEY 未设置或为占位符，自动使用 Gemini")
+                    return self._call_llm_zoo_google(image_path, prompt, analysis_level)
+                return {"model": "gpt-5.2", "error": "OPENAI_API_KEY not set", "status": "error"}
+
             import openai
-            client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            client = openai.OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-5.2",
                 messages=[{"role": "user", "content": content}],
@@ -1148,12 +1155,16 @@ IMPORTANT INSTRUCTIONS:
             return {"model": "gpt-5.2", "response": response.choices[0].message.content, "status": "success", "max_tokens": max_tokens}
         except Exception as e:
             logger.error(f"OpenAI API 调用失败: {e}")
+            err_str = str(e).lower()
+            if ("invalid_api_key" in err_str or "401" in err_str or "incorrect api key" in err_str) and (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+                logger.info("OpenAI API Key 鉴权失败，自动回退到 Gemini")
+                return self._call_llm_zoo_google(image_path, prompt, analysis_level)
             return {"model": "gpt-5.2", "error": str(e), "status": "error"}
 
     def _call_llm_zoo_google(self, image_path: str, prompt: str, analysis_level: str = "overall") -> Dict[str, Any]:
         """
         仅调用 Google Gemini（Gemini Developer API），优先 GEMINI_API_KEY。
-        模型：gemini-3-flash-preview。温度 0.3。图像缩放到短边 768。
+        模型优先 GEMINI_MODEL 环境变量，默认 gemini-2.5-flash。温度 0.3。图像缩放到短边 768。
         analysis_level 控制 max_output_tokens（整体为原值 4 倍）:
         - "overall": 8192, "quadrant": 4096, "tooth": 1024, "binary": 64
         """
@@ -1161,25 +1172,30 @@ IMPORTANT INSTRUCTIONS:
         if resolved and os.path.isfile(resolved):
             image_path = resolved
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        model_name = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
         if not api_key:
             logger.error("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY")
-            return {"model": "gemini-3-flash-preview", "error": "GEMINI_API_KEY or GOOGLE_API_KEY not set", "status": "error"}
+            return {"model": model_name, "error": "GEMINI_API_KEY or GOOGLE_API_KEY not set", "status": "error"}
         # 根据分析级别设置 max_output_tokens（4 倍）
         max_tokens_map = {"overall": 8192, "quadrant": 4096, "tooth": 1024, "binary": 64}
         max_tokens = max_tokens_map.get(analysis_level, 8192)
-        # 缩放图像到短边 768
-        resized_bytes = self._resize_image_short_edge(image_path, short_edge=768)
-        image_data = base64.standard_b64encode(resized_bytes).decode("utf-8")
-        mime_type = "image/png"  # 缩放后统一输出 PNG
-        data_url = f"data:{mime_type};base64,{image_data}"
+
+        has_image = bool(image_path) and os.path.isfile(image_path)
         from langchain_core.messages import HumanMessage
-        msg = HumanMessage(
-            content=[
-                {"type": "image_url", "image_url": {"url": data_url}},
-                {"type": "text", "text": prompt},
-            ]
-        )
-        model_name = "gemini-3-flash-preview"
+        if has_image:
+            resized_bytes = self._resize_image_short_edge(image_path, short_edge=768)
+            image_data = base64.standard_b64encode(resized_bytes).decode("utf-8")
+            mime_type = "image/png"  # 缩放后统一输出 PNG
+            data_url = f"data:{mime_type};base64,{image_data}"
+            msg = HumanMessage(
+                content=[
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "text", "text": prompt},
+                ]
+            )
+        else:
+            msg = HumanMessage(content=prompt)
+
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
             model = ChatGoogleGenerativeAI(
@@ -1946,8 +1962,13 @@ Return ONLY valid JSON, no explanations. Example structure:
 Now convert the report to structured JSON:"""
 
         try:
-            # 调用 GPT-5.2 进行转换
-            result = self._call_llm_zoo_openai("", conversion_prompt, analysis_level="overall")
+            # 优先使用有效配置的 LLM 进行转换
+            has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
+            has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+            if not has_valid_openai and has_gemini:
+                result = self._call_llm_zoo_google("", conversion_prompt, analysis_level="overall")
+            else:
+                result = self._call_llm_zoo_openai("", conversion_prompt, analysis_level="overall")
             if result.get("status") == "error":
                 return json.dumps({"error": result.get("error", "conversion failed"), "status": "error"}, ensure_ascii=False)
             
@@ -2121,9 +2142,14 @@ Analyze and provide the most appropriate classification:"""
                 "status": "error"
             }, ensure_ascii=False)
         
-        # 调用 subagent (GPT-5.2)
+        # 调用 subagent 进行消歧
         try:
-            result = self._call_llm_zoo_openai("", task_description, analysis_level="quadrant")  # 使用 quadrant 级别 (1024 tokens)
+            has_valid_openai = bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENAI_API_KEY", "").startswith("sk-..."))
+            has_gemini = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+            if not has_valid_openai and has_gemini:
+                result = self._call_llm_zoo_google("", task_description, analysis_level="quadrant")
+            else:
+                result = self._call_llm_zoo_openai("", task_description, analysis_level="quadrant")
             
             if result.get("status") == "error":
                 return json.dumps({

@@ -18,6 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 def _load_dotenv():
     env_file = PROJECT_ROOT / ".env"
+    loaded_keys = set()
     if env_file.exists():
         with open(env_file, "r", encoding="utf-8") as f:
             for line in f:
@@ -25,8 +26,19 @@ def _load_dotenv():
                 if line and not line.startswith("#") and "=" in line:
                     k, v = line.split("=", 1)
                     k, v = k.strip(), v.strip().strip("'\"")
-                    if k and k not in os.environ:
+                    if k:
                         os.environ[k] = v
+                        loaded_keys.add(k)
+
+    # If OPENAI_API_KEY was commented out or is dummy placeholder, purge it so it doesn't mask Gemini
+    if "OPENAI_API_KEY" not in loaded_keys:
+        os.environ.pop("OPENAI_API_KEY", None)
+    elif os.environ.get("OPENAI_API_KEY", "").startswith("sk-...") or os.environ.get("OPENAI_API_KEY", "").startswith("your-"):
+        os.environ.pop("OPENAI_API_KEY", None)
+
+    # If Gemini is configured and OpenAI is not, ensure LLM_PROVIDER is gemini
+    if (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")) and not os.environ.get("OPENAI_API_KEY"):
+        os.environ["LLM_PROVIDER"] = "gemini"
 
 _load_dotenv()
 

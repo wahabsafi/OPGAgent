@@ -153,7 +153,10 @@ def build_chat_model(
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY，无法调用 Gemini 模型。")
-        model_name = model or os.getenv("GEMINI_MODEL") or "gemini-3-flash-preview"
+        if not model or model.startswith("gpt") or model.startswith("qwen"):
+            model_name = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+        else:
+            model_name = model
         max_out = max_tokens if max_tokens is not None else 65536
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
@@ -286,9 +289,24 @@ class OPGReActAgent:
         
         # 初始化 LLM
         llm_config = self.config.get("llm", {})
-        model_name = llm_config.get("model") or "gpt-5.2"
+        provider = os.getenv("LLM_PROVIDER") or os.getenv("PROVIDER") or llm_config.get("provider", "openai")
+
+        # 智能检测：如果未提供有效 OpenAI key 但设置了 Gemini key，自动切换为 gemini
+        has_gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+        has_openai = bool(os.getenv("OPENAI_API_KEY") and not os.getenv("OPENAI_API_KEY", "").startswith("sk-..."))
+        if provider == "openai" and has_gemini and not has_openai:
+            provider = "gemini"
+            logger.info("未检测到有效的 OPENAI_API_KEY，自动切换 LLM provider 为 gemini")
+
+        model_name = os.getenv("LLM_MODEL")
+        if not model_name:
+            if provider == "gemini":
+                model_name = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+            else:
+                model_name = llm_config.get("model") or "gpt-5.2"
+
         self.llm = build_chat_model(
-            provider=llm_config.get("provider", "openai"),
+            provider=provider,
             model=model_name,
             temperature=llm_config.get("temperature", 0.7),
             max_tokens=llm_config.get("max_tokens"),
