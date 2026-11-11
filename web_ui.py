@@ -82,17 +82,19 @@ def get_agent(provider="openai", model=None, api_key=None, base_url=None):
     return AGENTS[cache_key]
 
 def _parse_engine_choice(engine_choice: str):
-    if "OpenAI (GPT-4o-mini)" in engine_choice:
+    if "Qwen2.5-7B" in engine_choice or "8091" in engine_choice:
+        return "qwen_local", "qwen2.5-7b-instruct"
+    elif "OpenAI (GPT-4o-mini)" in engine_choice:
         return "openai", "gpt-4o-mini"
     elif "OpenAI" in engine_choice:
         return "openai", "gpt-4o"
     elif "Gemini" in engine_choice:
         return "gemini", "gemini-3.5-flash"
-    elif "Local" in engine_choice:
+    elif "DentalGPT" in engine_choice:
         return "local", "DentalGPT-7B"
     elif "Custom" in engine_choice:
         return "custom", "gpt-4o"
-    return "openai", "gpt-4o"
+    return "qwen_local", "qwen2.5-7b-instruct"
 
 def test_engine_connection(engine_choice, api_key_input, model_name_input, base_url_input):
     provider, default_model = _parse_engine_choice(engine_choice or "")
@@ -101,7 +103,22 @@ def test_engine_connection(engine_choice, api_key_input, model_name_input, base_
     base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
 
     try:
-        if provider == "gemini":
+        if provider == "qwen_local":
+            url = base_url or "http://127.0.0.1:8091/v1"
+            import httpx
+            with httpx.Client(trust_env=False, timeout=15.0) as client:
+                res = client.post(
+                    f"{url.rstrip('/')}/chat/completions",
+                    json={"model": model or "qwen2.5-7b-instruct", "messages": [{"role": "user", "content": "Hello! Reply with 'Qwen2.5 connection OK'."}], "max_tokens": 25}
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    ans = data["choices"][0]["message"]["content"]
+                    return f"✅ **Success!** Local Qwen2.5-7B Brain on Port 8091 responded:\n> {ans}"
+                else:
+                    return f"❌ **Error:** Port 8091 returned HTTP {res.status_code}: {res.text}"
+
+        elif provider == "gemini":
             key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
             if not key:
                 return "❌ **Error:** No Gemini API key provided. Please paste it above or set GEMINI_API_KEY in .env."
@@ -122,7 +139,7 @@ def test_engine_connection(engine_choice, api_key_input, model_name_input, base_
                 if res.status_code == 200:
                     data = res.json()
                     ans = data["choices"][0]["message"]["content"]
-                    return f"✅ **Success!** Local llama-server (`{model}`) responded:\n> {ans}"
+                    return f"✅ **Success!** Local DentalGPT VLM (`{model}`) responded:\n> {ans}"
                 else:
                     return f"❌ **Error:** llama-server returned HTTP {res.status_code}: {res.text}"
 
@@ -155,6 +172,7 @@ def get_service_status():
         "OralGPT VLM (Port 6604)": "http://localhost:6604/health",
         "DentalGPT VLM (Port 6608)": "http://localhost:6608/health",
         "DentalGPT GGUF llama-server (Port 8090)": "http://localhost:8090/health",
+        "Qwen2.5-7B Brain Server (Port 8091)": "http://localhost:8091/health",
     }
     lines = ["| Service | Status | Endpoint |", "| :--- | :--- | :--- |"]
     for name, url in services.items():
@@ -182,6 +200,12 @@ def analyze_opg(
     model = model_name_input.strip() if model_name_input and model_name_input.strip() else default_model
     api_key = api_key_input.strip() if api_key_input and api_key_input.strip() else None
     base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
+
+    # Handle local Qwen brain on port 8091
+    if provider == "qwen_local":
+        base_url = base_url or "http://127.0.0.1:8091/v1"
+        provider = "local"
+        api_key = "local"
 
     # Inject into os.environ so all sub-tools (VLM, structured conversion) share the configuration
     if api_key:
@@ -300,13 +324,14 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
                 engine_choice = gr.Dropdown(
                     label="🧠 Reasoning Engine (ReAct Brain)",
                     choices=[
+                        "Local Brain Qwen2.5-7B (A100 Port 8091 - Recommended)",
+                        "Google Gemini (gemini-3.5-flash)",
                         "OpenAI (GPT-4o)",
                         "OpenAI (GPT-4o-mini)",
-                        "Google Gemini (gemini-3.5-flash)",
-                        "Local A100 GPU (DentalGPT - Offline & Free)",
+                        "Local VLM (DentalGPT - Port 8090)",
                         "Custom OpenAI-Compatible (DeepSeek / Ollama / etc.)",
                     ],
-                    value="OpenAI (GPT-4o)" if os.getenv("OPENAI_API_KEY") else ("Google Gemini (gemini-3.5-flash)" if (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) else "Local A100 GPU (DentalGPT - Offline & Free)"),
+                    value="Local Brain Qwen2.5-7B (A100 Port 8091 - Recommended)",
                     interactive=True,
                 )
                 with gr.Row():
