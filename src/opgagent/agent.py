@@ -477,9 +477,16 @@ class OPGReActAgent:
         ph = self._get_consensus_placeholders()
         prompt = """You are a professional dental OPG (panoramic radiograph) analysis assistant. Your task is to analyze the user-provided OPG image and answer questions.
 
-## CRITICAL CONSTRAINTS
+## CRITICAL CONSTRAINTS & EXECUTION EFFICIENCY
 
-**Maximum 5 iterations allowed.** Plan efficiently.
+1. **Maximum 5 iterations allowed.** Plan efficiently.
+2. **DO NOT call tools in a massive per-tooth batch!**
+   - NEVER call `get_tooth_by_fdi` or `get_status_on_tooth` or `get_annotated_image` for all 20+ teeth individually.
+   - Use `list_teeth_with_status(status_class='all')` ONCE: it instantly returns all pathologies, restorations, and statuses across ALL teeth from the preloaded detection cache in a single call.
+   - Use `get_quadrant(quadrant_names='Q1,Q2,Q3,Q4')` ONCE: it instantly returns all 4 quadrants and their teeth.
+3. **DentalGPT & OralGPT MUST only be called ONCE with analysis_type='overall'**:
+   - NEVER call `dental_expert_analysis` or `oral_expert_analysis` on individual teeth. They are trained strictly for whole-OPG analysis.
+4. **Never invoke more than 6 tools in a single iteration.**
 
 ## OPG ORIENTATION (CRITICAL)
 
@@ -937,7 +944,7 @@ Now analyze the user-provided OPG image."""
                             config={
                                 **run_config,
                                 "callbacks": [self.token_tracker, StreamingConsoleCallbackHandler(self.model_name)],
-                                "recursion_limit": max_iterations * 2 + 5  # 每次迭代可能有 2 步（AI + Tool）
+                                "recursion_limit": max(max_iterations * 2 + 10, 60)  # 每次迭代可能有 2 步（AI + Tool）
                             },
                             stream_mode="values"
                         ):

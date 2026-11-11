@@ -920,7 +920,20 @@ IMPORTANT INSTRUCTIONS:
         import tempfile
         image_path = self._resolve_image_path(image_path, config)
         actual_target_id = target_id or fdi or quadrant
-        
+
+        # 保护：DentalGPT 专为全景片设计，若传入单牙则直接引导使用检测工具，避免超长排队
+        if str(analysis_type).lower() in ("tooth", "single") and actual_target_id:
+            return json.dumps({
+                "analysis": f"DentalGPT is optimized for full OPG interpretation. For tooth {actual_target_id}, use get_status_on_tooth({actual_target_id}) or list_teeth_with_status().",
+                "model": "DentalGPT"
+            }, ensure_ascii=False)
+
+        # 缓存整体分析结果
+        if not hasattr(self, "_dentalgpt_cache"):
+            self._dentalgpt_cache = {}
+        if analysis_type == "overall" and image_path in self._dentalgpt_cache:
+            return self._dentalgpt_cache[image_path]
+
         prompt = self._build_dentist_prompt(
             analysis_type=analysis_type,
             target_id=actual_target_id,
@@ -950,7 +963,10 @@ IMPORTANT INSTRUCTIONS:
         # 只返回 answer 部分，不包含 question 以节省 token
         if isinstance(result, dict):
             answer = result.get("answer", "")
-            return json.dumps({"analysis": answer, "model": "DentalGPT"}, ensure_ascii=False)
+            out_str = json.dumps({"analysis": answer, "model": "DentalGPT"}, ensure_ascii=False)
+            if analysis_type == "overall":
+                self._dentalgpt_cache[image_path] = out_str
+            return out_str
         return json.dumps(result, ensure_ascii=False)
     
     def oral_expert_analysis(
@@ -969,7 +985,20 @@ IMPORTANT INSTRUCTIONS:
         import tempfile
         image_path = self._resolve_image_path(image_path, config)
         actual_target_id = target_id or fdi or quadrant
-        
+
+        # 保护：OralGPT 专为全景片设计，若传入单牙则直接引导使用检测工具，避免超长排队
+        if str(analysis_type).lower() in ("tooth", "single") and actual_target_id:
+            return json.dumps({
+                "analysis": f"OralGPT is optimized for full OPG interpretation. For tooth {actual_target_id}, use get_status_on_tooth({actual_target_id}) or list_teeth_with_status().",
+                "model": "OralGPT"
+            }, ensure_ascii=False)
+
+        # 缓存整体分析结果
+        if not hasattr(self, "_oralgpt_cache"):
+            self._oralgpt_cache = {}
+        if analysis_type == "overall" and image_path in self._oralgpt_cache:
+            return self._oralgpt_cache[image_path]
+
         prompt = self._build_dentist_prompt(
             analysis_type=analysis_type,
             target_id=actual_target_id,
@@ -999,7 +1028,10 @@ IMPORTANT INSTRUCTIONS:
         # 只返回 analysis 部分，不包含 prompt 以节省 token
         if isinstance(result, dict):
             analysis = result.get("analysis", result.get("answer", ""))
-            return json.dumps({"analysis": analysis, "model": "OralGPT"}, ensure_ascii=False)
+            out_str = json.dumps({"analysis": analysis, "model": "OralGPT"}, ensure_ascii=False)
+            if analysis_type == "overall":
+                self._oralgpt_cache[image_path] = out_str
+            return out_str
         return json.dumps(result, ensure_ascii=False)
     
     def llm_zoo_analysis(
@@ -2093,15 +2125,26 @@ Now convert the report to structured JSON:"""
         import re
         
         # 解析输入
-        try:
-            opinions = json.loads(vlm_opinions) if isinstance(vlm_opinions, str) else vlm_opinions
-            gold_info = json.loads(gold_standard_info) if isinstance(gold_standard_info, str) else gold_standard_info
-            confirmed = json.loads(confirmed_findings) if confirmed_findings and isinstance(confirmed_findings, str) else (confirmed_findings or {})
-        except json.JSONDecodeError as e:
-            return json.dumps({
-                "error": f"JSON parse error: {e}",
-                "status": "error"
-            }, ensure_ascii=False)
+        def _safe_parse(val):
+            if isinstance(val, (dict, list)):
+                return val
+            if not val or not isinstance(val, str):
+                return {}
+            val = val.strip()
+            try:
+                return json.loads(val)
+            except Exception:
+                import ast
+                try:
+                    return ast.literal_eval(val)
+                except Exception:
+                    return {}
+
+        opinions = _safe_parse(vlm_opinions)
+        gold_info = _safe_parse(gold_standard_info)
+        confirmed = _safe_parse(confirmed_findings)
+        if not isinstance(opinions, list):
+            opinions = [opinions] if opinions else []
         
         # 构建 subagent prompt
         if disagreement_type == "position":
