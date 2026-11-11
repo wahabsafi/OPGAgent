@@ -9,6 +9,13 @@
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Auto-detect single-GPU environment
+NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+if [ "$NUM_GPUS" -le 1 ]; then
+    echo -e "\033[1;33mDetected single GPU ($NUM_GPUS GPU available). Forwarding to start_all_single_gpu.sh...\033[0m"
+    exec bash "$SCRIPT_DIR/start_all_single_gpu.sh" "$@"
+fi
+
 # Color output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
