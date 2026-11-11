@@ -169,6 +169,7 @@ async def analyze_image(
 
             def _generate_text_llama(prompt_text: str) -> str:
                 payload = {
+                    "model": "DentalGPT-7B",
                     "messages": [
                         {
                             "role": "user",
@@ -182,6 +183,8 @@ async def analyze_image(
                     "max_tokens": max_new_tokens
                 }
                 res = requests.post(f"{LLAMA_SERVER_URL}/v1/chat/completions", json=payload, timeout=120, proxies={"http": None, "https": None})
+                if res.status_code != 200:
+                    logger.error(f"llama-server returned {res.status_code}: {res.text}")
                 res.raise_for_status()
                 return res.json()["choices"][0]["message"]["content"]
 
