@@ -65,17 +65,87 @@ except ImportError:
 
 from opgagent.agent import OPGReActAgent
 
-AGENT = None
+AGENTS = {}
 
-def get_agent():
-    global AGENT
-    if AGENT is None:
+def get_agent(provider="openai", model=None, api_key=None, base_url=None):
+    cache_key = (provider, model, api_key, base_url)
+    if cache_key not in AGENTS:
         config_path = PROJECT_ROOT / "src" / "opgagent" / "config" / "agent_config.yaml"
-        AGENT = OPGReActAgent(
+        AGENTS[cache_key] = OPGReActAgent(
             config_path=str(config_path) if config_path.exists() else None,
-            tool_service="api_service"
+            tool_service="api_service",
+            llm_provider=provider,
+            llm_model=model,
+            api_key=api_key,
+            base_url=base_url,
         )
-    return AGENT
+    return AGENTS[cache_key]
+
+def _parse_engine_choice(engine_choice: str):
+    if "OpenAI (GPT-4o-mini)" in engine_choice:
+        return "openai", "gpt-4o-mini"
+    elif "OpenAI" in engine_choice:
+        return "openai", "gpt-4o"
+    elif "Gemini" in engine_choice:
+        return "gemini", "gemini-3.5-flash"
+    elif "Local" in engine_choice:
+        return "local", "DentalGPT-7B"
+    elif "Custom" in engine_choice:
+        return "custom", "gpt-4o"
+    return "openai", "gpt-4o"
+
+def test_engine_connection(engine_choice, api_key_input, model_name_input, base_url_input):
+    provider, default_model = _parse_engine_choice(engine_choice or "")
+    model = model_name_input.strip() if model_name_input and model_name_input.strip() else default_model
+    api_key = api_key_input.strip() if api_key_input and api_key_input.strip() else None
+    base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
+
+    try:
+        if provider == "gemini":
+            key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if not key:
+                return "❌ **Error:** No Gemini API key provided. Please paste it above or set GEMINI_API_KEY in .env."
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model=model, google_api_key=key, timeout=30, max_retries=1)
+            resp = llm.invoke("Hello! Reply with: 'Gemini connection successful.'")
+            content = getattr(resp, "content", str(resp))
+            return f"✅ **Success!** Gemini (`{model}`) connected successfully:\n> {content}"
+
+        elif provider in ("local", "llama"):
+            url = base_url or os.getenv("LOCAL_LLAMA_BASE_URL") or "http://127.0.0.1:8090/v1"
+            import httpx
+            with httpx.Client(trust_env=False, timeout=15.0) as client:
+                res = client.post(
+                    f"{url.rstrip('/')}/chat/completions",
+                    json={"model": model or "DentalGPT-7B", "messages": [{"role": "user", "content": "Hello!"}], "max_tokens": 25}
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    ans = data["choices"][0]["message"]["content"]
+                    return f"✅ **Success!** Local llama-server (`{model}`) responded:\n> {ans}"
+                else:
+                    return f"❌ **Error:** llama-server returned HTTP {res.status_code}: {res.text}"
+
+        else: # openai or custom
+            key = api_key or os.getenv("OPENAI_API_KEY")
+            if not key and not base_url:
+                return "❌ **Error:** No OpenAI API key provided. Please paste it above or set OPENAI_API_KEY in .env."
+            import openai
+            kwargs = {"api_key": key or "dummy"}
+            target_url = base_url or os.getenv("OPENAI_BASE_URL")
+            if target_url:
+                kwargs["base_url"] = target_url
+            client = openai.OpenAI(**kwargs)
+            res = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "Hello! Reply with: 'OpenAI connection successful.'"}],
+                max_tokens=25
+            )
+            ans = res.choices[0].message.content
+            return f"✅ **Success!** OpenAI (`{model}`) connected successfully:\n> {ans}"
+
+    except Exception as e:
+        return f"❌ **Connection Failed:**\n```text\n{str(e)}\n```"
 
 def get_service_status():
     services = {
@@ -96,12 +166,43 @@ def get_service_status():
         lines.append(f"| {name} | {status} | `{url}` |")
     return "\n".join(lines)
 
-def analyze_opg(image, question, progress=gr.Progress(track_tqdm=True)):
+def analyze_opg(
+    image,
+    question,
+    engine_choice,
+    api_key_input,
+    model_name_input,
+    base_url_input,
+    progress=gr.Progress(track_tqdm=True)
+):
     if image is None:
         return "⚠️ **Please upload a panoramic radiograph (OPG) image first.**", {}, "No image provided."
 
+    provider, default_model = _parse_engine_choice(engine_choice or "")
+    model = model_name_input.strip() if model_name_input and model_name_input.strip() else default_model
+    api_key = api_key_input.strip() if api_key_input and api_key_input.strip() else None
+    base_url = base_url_input.strip() if base_url_input and base_url_input.strip() else None
+
+    # Inject into os.environ so all sub-tools (VLM, structured conversion) share the configuration
+    if api_key:
+        if provider in ("openai", "custom"):
+            os.environ["OPENAI_API_KEY"] = api_key
+        elif provider == "gemini":
+            os.environ["GEMINI_API_KEY"] = api_key
+    if model:
+        if provider in ("openai", "custom"):
+            os.environ["OPENAI_MODEL"] = model
+        elif provider == "gemini":
+            os.environ["GEMINI_MODEL"] = model
+    if base_url:
+        if provider in ("openai", "custom"):
+            os.environ["OPENAI_BASE_URL"] = base_url
+        elif provider == "local":
+            os.environ["LOCAL_LLAMA_BASE_URL"] = base_url
+
     print("\n" + "="*50)
     print("📥 [Web UI] New Analysis Request Received!")
+    print(f"🧠 Engine: {engine_choice} | Model: {model} | Provider: {provider}")
     print(f"❓ Question: {question}")
     print(f"🖼️ Image size: {image.size}")
     print("="*50)
@@ -114,11 +215,11 @@ def analyze_opg(image, question, progress=gr.Progress(track_tqdm=True)):
         tmp_path = tmp.name
 
     try:
-        progress(0.1, desc="Initializing OPGAgent & preloading CV detection cache...")
-        print("⚙️ Initializing agent...")
-        agent = get_agent()
+        progress(0.1, desc=f"Initializing OPGAgent ({model}) & preloading CV detection cache...")
+        print(f"⚙️ Initializing agent ({provider} / {model})...")
+        agent = get_agent(provider=provider, model=model, api_key=api_key, base_url=base_url)
 
-        progress(0.3, desc="Running visual models & ReAct reasoning loop (takes ~20-40s)...")
+        progress(0.3, desc=f"Running visual models & ReAct reasoning loop with {model}...")
         print("🚀 Executing agent.run()...")
         result = agent.run(question=question, image_path=tmp_path)
         answer = result.get("answer", "No diagnosis generated.")
@@ -195,6 +296,42 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
             btn_preset3.click(lambda: "Evaluate the alveolar bone level and identify any regions or quadrants with horizontal or vertical periodontal bone loss.", outputs=[question_input])
             btn_preset4.click(lambda: "Identify all missing teeth and impacted wisdom teeth using FDI standard tooth notation.", outputs=[question_input])
 
+            with gr.Accordion("⚙️ AI Reasoning Engine & API Key Settings", open=True):
+                engine_choice = gr.Dropdown(
+                    label="🧠 Reasoning Engine (ReAct Brain)",
+                    choices=[
+                        "OpenAI (GPT-4o)",
+                        "OpenAI (GPT-4o-mini)",
+                        "Google Gemini (gemini-3.5-flash)",
+                        "Local A100 GPU (DentalGPT - Offline & Free)",
+                        "Custom OpenAI-Compatible (DeepSeek / Ollama / etc.)",
+                    ],
+                    value="OpenAI (GPT-4o)" if os.getenv("OPENAI_API_KEY") else ("Google Gemini (gemini-3.5-flash)" if (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) else "Local A100 GPU (DentalGPT - Offline & Free)"),
+                    interactive=True,
+                )
+                with gr.Row():
+                    api_key_input = gr.Textbox(
+                        label="API Key (Optional)",
+                        type="password",
+                        placeholder="Paste OpenAI (sk-...) or Gemini API key (leave blank to use server .env)",
+                    )
+                    model_name_input = gr.Textbox(
+                        label="Model Name (Optional)",
+                        placeholder="e.g. gpt-4o, gpt-4o-mini, gemini-3.5-flash, DentalGPT-7B",
+                    )
+                base_url_input = gr.Textbox(
+                    label="Custom Base URL (Optional)",
+                    placeholder="e.g. http://127.0.0.1:8090/v1 (only for Local GPU or custom endpoint)",
+                )
+                with gr.Row():
+                    test_conn_btn = gr.Button("🧪 Test Connection", size="sm")
+                conn_status_box = gr.Markdown("")
+                test_conn_btn.click(
+                    fn=test_engine_connection,
+                    inputs=[engine_choice, api_key_input, model_name_input, base_url_input],
+                    outputs=[conn_status_box]
+                )
+
             submit_btn = gr.Button("🩺 Run Dental AI Analysis", variant="primary", size="lg")
 
             with gr.Accordion("🔍 Backend Services Status", open=False):
@@ -215,7 +352,7 @@ with gr.Blocks(title="OPGAgent: Dental X-ray Interpretation") as demo:
 
     submit_btn.click(
         fn=analyze_opg,
-        inputs=[image_input, question_input],
+        inputs=[image_input, question_input, engine_choice, api_key_input, model_name_input, base_url_input],
         outputs=[report_output, json_output, trace_output],
         show_progress="full"
     )

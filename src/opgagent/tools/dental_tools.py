@@ -1167,21 +1167,26 @@ IMPORTANT INSTRUCTIONS:
                 return {"model": "gpt-5.2", "error": "OPENAI_API_KEY not set", "status": "error"}
 
             import openai
-            client = openai.OpenAI(api_key=api_key)
+            client_kwargs = {"api_key": api_key}
+            if os.environ.get("OPENAI_BASE_URL"):
+                client_kwargs["base_url"] = os.environ.get("OPENAI_BASE_URL")
+            client = openai.OpenAI(**client_kwargs)
+            model_to_use = os.environ.get("OPENAI_MODEL") or "gpt-4o"
             response = client.chat.completions.create(
-                model="gpt-5.2",
+                model=model_to_use,
                 messages=[{"role": "user", "content": content}],
-                max_completion_tokens=max_tokens,
+                max_completion_tokens=min(max_tokens, 4096),
                 temperature=0.3  # GPT 温度 0.3
             )
-            return {"model": "gpt-5.2", "response": response.choices[0].message.content, "status": "success", "max_tokens": max_tokens}
+            return {"model": model_to_use, "response": response.choices[0].message.content, "status": "success", "max_tokens": max_tokens}
         except Exception as e:
             logger.error(f"OpenAI API 调用失败: {e}")
             err_str = str(e).lower()
             if ("invalid_api_key" in err_str or "401" in err_str or "incorrect api key" in err_str) and (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
                 logger.info("OpenAI API Key 鉴权失败，自动回退到 Gemini")
                 return self._call_llm_zoo_google(image_path, prompt, analysis_level)
-            return {"model": "gpt-5.2", "error": str(e), "status": "error"}
+            model_name_reported = os.environ.get("OPENAI_MODEL") or "gpt-4o"
+            return {"model": model_name_reported, "error": str(e), "status": "error"}
 
     def _call_llm_zoo_google(self, image_path: str, prompt: str, analysis_level: str = "overall") -> Dict[str, Any]:
         """

@@ -122,8 +122,12 @@ class TokenUsageTracker(BaseCallbackHandler):
 
 class StreamingConsoleCallbackHandler(BaseCallbackHandler):
     """Real-time console logger for ReAct agent steps and live token streaming"""
+    def __init__(self, model_name: str = "AI"):
+        super().__init__()
+        self.model_name = model_name
+
     def on_llm_start(self, serialized, prompts, **kwargs):
-        print("\n🧠 [ReAct Brain] Gemini is reasoning...", flush=True)
+        print(f"\n🧠 [ReAct Brain] {self.model_name} is reasoning...", flush=True)
 
     def on_llm_new_token(self, token: str, **kwargs):
         print(token, end="", flush=True)
@@ -153,27 +157,31 @@ def _data_url(image_path: str) -> str:
 
 def build_chat_model(
     provider: str,
-    model: Optional[str],
+    model: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: Optional[int] = None,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> BaseChatModel:
     """
-    构建 Chat 模型（OpenAI 兼容或 Google Gemini）
+    构建 Chat 模型（OpenAI 兼容、Google Gemini 或本地 llama-server）
 
     Args:
-        provider: 模型提供商 (qwen/openai/openrouter/gemini)
+        provider: 模型提供商 (openai/gemini/local/qwen/openrouter/custom)
         model: 模型名称
         temperature: 温度参数
-        max_tokens: 最大输出 token 数（Gemini 使用 max_output_tokens；OpenAI 兼容通过 model_kwargs 传递）
+        max_tokens: 最大输出 token 数
+        api_key: API 密钥（若未提供则从环境变量读取）
+        base_url: 自定义 API Base URL（用于本地 llama-server 或第三方兼容服务）
 
     Returns:
         BaseChatModel 实例
     """
-    provider_norm = (provider or "qwen").strip().lower()
+    provider_norm = (provider or "openai").strip().lower()
 
     if provider_norm == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
+        gemini_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not gemini_key:
             raise RuntimeError("未设置 GEMINI_API_KEY 或 GOOGLE_API_KEY，无法调用 Gemini 模型。")
         if not model or model.startswith("gpt") or model.startswith("qwen"):
             model_name = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash"
@@ -184,7 +192,7 @@ def build_chat_model(
             from langchain_google_genai import ChatGoogleGenerativeAI
             return ChatGoogleGenerativeAI(
                 model=model_name,
-                google_api_key=api_key,
+                google_api_key=gemini_key,
                 temperature=temperature,
                 max_output_tokens=max_out,
                 timeout=120,
@@ -193,38 +201,64 @@ def build_chat_model(
         except ImportError as e:
             raise RuntimeError(f"使用 Gemini 需安装 langchain-google-genai: {e}") from e
 
+    if provider_norm in ("local", "llama", "llama-server", "llama_server"):
+        target_base_url = base_url or os.getenv("LOCAL_LLAMA_BASE_URL") or "http://127.0.0.1:8090/v1"
+        target_api_key = api_key or "local"
+        target_model = model or "DentalGPT-7B"
+        import httpx
+        http_client = httpx.Client(trust_env=False, timeout=180.0)
+        kwargs = dict(
+            model=target_model,
+            base_url=target_base_url,
+            api_key=target_api_key,
+            temperature=temperature,
+            http_client=http_client,
+            timeout=180,
+        )
+        if max_tokens is not None:
+            kwargs["model_kwargs"] = {"max_tokens": max_tokens}
+        return ChatOpenAI(**kwargs)
+
     if provider_norm == "qwen":
-        base_url = (
-            os.getenv("QWEN_OPENAI_BASE_URL")
+        target_base_url = (
+            base_url
+            or os.getenv("QWEN_OPENAI_BASE_URL")
             or os.getenv("DASHSCOPE_OPENAI_BASE_URL")
             or "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
         )
-        api_key = os.getenv("DASHSCOPE_API_KEY")
-        if not api_key:
+        target_api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        if not target_api_key:
             raise RuntimeError("未设置 DASHSCOPE_API_KEY，无法调用 Qwen 模型。")
         model_name = model or os.getenv("QWEN_MODEL") or "qwen3-vl-235b-a22b-instruct"
     elif provider_norm == "openrouter":
-        base_url = os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
+        target_base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+        target_api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        if not target_api_key:
             raise RuntimeError("未设置 OPENROUTER_API_KEY，无法调用 OpenRouter 模型。")
         model_name = model or "qwen/qwen3-vl-235b-a22b-thinking"
-    elif provider_norm == "openai":
-        base_url = os.getenv("OPENAI_BASE_URL") or None
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
+    elif provider_norm in ("openai", "custom"):
+        target_base_url = base_url or os.getenv("OPENAI_BASE_URL") or None
+        target_api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not target_api_key and not target_base_url:
             raise RuntimeError("未设置 OPENAI_API_KEY，无法调用 OpenAI 模型。")
-        model_name = model or os.getenv("OPENAI_MODEL") or "gpt-5.2"
+        elif not target_api_key:
+            target_api_key = "dummy"
+        model_name = model or os.getenv("OPENAI_MODEL") or "gpt-4o"
     else:
-        raise RuntimeError(f"不支持的 model provider: {provider_norm}")
+        target_base_url = base_url
+        target_api_key = api_key or "dummy"
+        model_name = model or "gpt-4o"
 
     kwargs = dict(
         model=model_name,
-        base_url=base_url,
-        api_key=api_key,
+        base_url=target_base_url,
+        api_key=target_api_key,
         temperature=temperature,
-        timeout=300,
+        timeout=180,
     )
+    if target_base_url and ("127.0.0.1" in target_base_url or "localhost" in target_base_url):
+        import httpx
+        kwargs["http_client"] = httpx.Client(trust_env=False, timeout=180.0)
     if max_tokens is not None:
         kwargs["model_kwargs"] = {"max_tokens": max_tokens}
     return ChatOpenAI(**kwargs)
@@ -239,7 +273,16 @@ class OPGReActAgent:
         "api_service": "api_service/tools_config.yaml",  # 新配置（端口从 6600 开始）
     }
     
-    def __init__(self, config_path: Optional[str] = None, tool_service: str = "default"):
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        tool_service: str = "default",
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        temperature: Optional[float] = None,
+    ):
         """
         初始化 Agent
 
@@ -248,6 +291,11 @@ class OPGReActAgent:
             tool_service: 工具服务配置选项
                 - "default": 使用默认配置（原端口 8xxx）
                 - "api_service": 使用新 api_service 配置（端口从 6600 开始）
+            llm_provider: 模型提供商 (openai/gemini/local/custom)
+            llm_model: 模型名称 (gpt-4o, gemini-3.5-flash, DentalGPT-7B, etc.)
+            api_key: 动态传入的 API 密钥（优先于环境变量）
+            base_url: 动态传入的 Base URL（用于本地 llama-server 或自定义端点）
+            temperature: 温度参数
         """
         # 记录使用的工具服务配置
         self.tool_service = tool_service
@@ -261,7 +309,7 @@ class OPGReActAgent:
             self.config = {
                 "llm": {
                     "provider": "openai",
-                    "model": "gpt-5.2",
+                    "model": "gpt-4o",
                     "temperature": 0.7,
                     "max_tokens": 8192
                 },
@@ -313,30 +361,44 @@ class OPGReActAgent:
         
         # 初始化 LLM
         llm_config = self.config.get("llm", {})
-        provider = os.getenv("LLM_PROVIDER") or os.getenv("PROVIDER") or llm_config.get("provider", "openai")
+        provider = (
+            llm_provider
+            or os.getenv("LLM_PROVIDER")
+            or os.getenv("PROVIDER")
+            or llm_config.get("provider", "openai")
+        ).strip().lower()
 
-        # 智能检测：如果未提供有效 OpenAI key 但设置了 Gemini key，自动切换为 gemini
-        has_gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-        has_openai = bool(os.getenv("OPENAI_API_KEY") and not os.getenv("OPENAI_API_KEY", "").startswith("sk-..."))
-        if provider == "openai" and has_gemini and not has_openai:
+        # 智能检测：如果未显式指定 provider 且未提供有效 OpenAI key 但设置了 Gemini key，自动切换为 gemini
+        has_gemini = bool(api_key if provider == "gemini" else (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")))
+        has_openai = bool(api_key if provider == "openai" else (os.getenv("OPENAI_API_KEY") and not os.getenv("OPENAI_API_KEY", "").startswith("sk-...")))
+        if not llm_provider and provider == "openai" and has_gemini and not has_openai:
             provider = "gemini"
             logger.info("未检测到有效的 OPENAI_API_KEY，自动切换 LLM provider 为 gemini")
 
-        model_name = os.getenv("LLM_MODEL")
+        model_name = llm_model or os.getenv("LLM_MODEL")
         if not model_name:
             if provider == "gemini":
                 model_name = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash"
+            elif provider in ("local", "llama", "llama-server", "llama_server"):
+                model_name = "DentalGPT-7B"
             else:
-                model_name = llm_config.get("model") or "gpt-5.2"
+                model_name = llm_config.get("model") or "gpt-4o"
+
+        self.provider = provider
+        self.model_name = model_name
+        self.api_key = api_key
+        self.base_url = base_url
 
         self.llm = build_chat_model(
             provider=provider,
             model=model_name,
-            temperature=llm_config.get("temperature", 0.7),
+            temperature=temperature if temperature is not None else llm_config.get("temperature", 0.7),
             max_tokens=llm_config.get("max_tokens"),
+            api_key=api_key,
+            base_url=base_url,
         )
         
-        # 初始化 Token 使用量跟踪器（仅对 gpt-5.2 和 gemini-3-flash 启用）
+        # 初始化 Token 使用量跟踪器
         self.token_tracker = TokenUsageTracker(model_name)
         
         # 创建工具列表并获取 toolkit 引用（用于预加载缓存）
@@ -353,7 +415,7 @@ class OPGReActAgent:
         # 创建 agent
         self.agent = self._create_agent()
 
-        logger.info(f"✓ OPGReActAgent 初始化完成 (模型: {llm_config.get('model')}, 工具服务: {self.tool_service}, VLM: 4 VLM, 工具数: {len(self.tools)})")
+        logger.info(f"✓ OPGReActAgent 初始化完成 (模型: {self.model_name}, 提供商: {self.provider}, 工具服务: {self.tool_service}, VLM: 4 VLM, 工具数: {len(self.tools)})")
     
     def _get_consensus_block(self) -> str:
         """5 源 3/5 投票：4 VLMs (DentalGPT, OralGPT, GPT-5.2, Gemini) + 1 Tool。"""
@@ -828,7 +890,7 @@ Now analyze the user-provided OPG image."""
                             {"messages": messages},
                             config={
                                 **run_config,
-                                "callbacks": [self.token_tracker, StreamingConsoleCallbackHandler()],
+                                "callbacks": [self.token_tracker, StreamingConsoleCallbackHandler(self.model_name)],
                                 "recursion_limit": max_iterations * 2 + 5  # 每次迭代可能有 2 步（AI + Tool）
                             },
                             stream_mode="values"
